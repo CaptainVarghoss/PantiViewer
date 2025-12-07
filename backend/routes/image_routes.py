@@ -61,7 +61,7 @@ async def get_thumbnail(image_id: int, db: Session = Depends(database.get_db)):
         placeholder_path = os.path.join(config.STATIC_DIR, "placeholder.png")  # Or a loading animation
         return FileResponse(placeholder_path, media_type="image/png")
 
-@router.get("/images/", response_model=List[schemas.ImageContent])
+@router.get("/images/", response_model=List[schemas.ImageResponse])
 def read_images(
     limit: int = 100,
     search_query: Optional[str] = Query(None, description="Search term for filename or path"),
@@ -150,11 +150,17 @@ def read_images(
     response_images = []
     for location in images:
         img = location.content
+
         # Check if thumbnail exists, if not, trigger generation in background
         expected_thumbnail_path = os.path.join(config.THUMBNAILS_DIR, f"{img.content_hash}_thumb.webp")
-        if not os.path.exists(expected_thumbnail_path):
+        if os.path.exists(expected_thumbnail_path):
+            thumbnail_url = f"/static_assets/generated_media/thumbnails/{img.content_hash}_thumb.webp"
+            thumbnail_missing = False
+        else:
             print(f"Thumbnail for {location.filename} (ID: {location.id}) not found. Triggering background generation.")
-
+            thumbnail_url = "/placeholder.png" # The frontend will use this directly
+            thumbnail_missing = True
+            
             original_filepath = os.path.join(location.path, location.filename)
             if original_filepath and Path(original_filepath).is_file():
                 thread = threading.Thread(
@@ -172,15 +178,17 @@ def read_images(
             except json.JSONDecodeError:
                 img.exif_data = {} # Or handle error appropriately
         
-        response_images.append(schemas.ImageContent(
+        response_images.append(schemas.ImageResponse(
             id=location.id,
             filename=location.filename,
             path=location.path,
+            thumbnail_url=thumbnail_url,
+            thumbnail_missing=thumbnail_missing,
             **img.__dict__
         ))
     return response_images
 
-@router.get("/images/{image_id}", response_model=schemas.ImageContent)
+@router.get("/images/{image_id}", response_model=schemas.ImageResponse)
 def read_image(
         image_id: int,
         db: Session = Depends(database.get_db),
@@ -200,10 +208,16 @@ def read_image(
 
     # Check if thumbnail exists, if not, trigger generation in background
     expected_thumbnail_path = os.path.join(config.THUMBNAILS_DIR, f"{db_image.content_hash}_thumb.webp")
-    if not os.path.exists(expected_thumbnail_path):
+    if os.path.exists(expected_thumbnail_path):
+        thumbnail_url = f"/static_assets/generated_media/thumbnails/{db_image.content_hash}_thumb.webp"
+        thumbnail_missing = False
+    else:
         print(f"Thumbnail for {location_image.filename} (ID: {location_image.id}) not found. Triggering background generation.")
+        thumbnail_url = "/placeholder.png"
+        thumbnail_missing = True
         original_filepath = os.path.join(location_image.path, location_image.filename)
         if original_filepath and Path(original_filepath).is_file():
+            # Note: The original code was missing the loop argument here, which is now included.
             thread = threading.Thread(
                 target=image_processor.generate_thumbnail_in_background,
                 args=(location_image.id, db_image.content_hash, original_filepath, database.main_event_loop)
@@ -219,12 +233,13 @@ def read_image(
         except json.JSONDecodeError:
             db_image.exif_data = {}
 
-    return schemas.ImageContent(
+    return schemas.ImageResponse(
         id=location_image.id,
         filename=location_image.filename,
         path=location_image.path,
         **db_image.__dict__
     )
+
 
 @router.put("/images/{image_id}/tags", response_model=schemas.ImageContent)
 def update_image(image_id: int, image_update: schemas.ImageTagUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):

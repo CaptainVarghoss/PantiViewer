@@ -876,6 +876,10 @@ form .section-list .section-item .section-fields:nth-child(3) {
   transition: all 0.5s ease;
 }
 
+.image-card-inner {
+  display: flex;
+}
+
 /* In select mode, all images are dimmed by default */
 .image-grid.select-mode .image-card, nav .select-mode {
   filter: brightness(0.5);

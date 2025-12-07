@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext'; // Import useAuth to get the token
+import { moveImagesApi } from '../api/imageService';
+import { fetchFoldersAsTreeApi } from '../api/folderService';
 import FolderTree from './FolderTree'; // Import the FolderTree component
 
 const MoveFilesForm = ({ filesToMove, onMoveSuccess, onClose }) => {
@@ -14,13 +16,7 @@ const MoveFilesForm = ({ filesToMove, onMoveSuccess, onClose }) => {
         // Fetch available folders when the component mounts
         const fetchFolders = async () => {
             try {
-                const response = await fetch('/api/folders/?format=tree', { // Request tree format
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch folders: ${response.statusText}`);
-                }
-                const responseData = await response.json();
+                const responseData = await fetchFoldersAsTreeApi(token);
                 setFolders(responseData.folders);
             } catch (err) {
                 setError('Failed to load folders.');
@@ -45,22 +41,16 @@ const MoveFilesForm = ({ filesToMove, onMoveSuccess, onClose }) => {
         setError('');
 
         try {
-            const response = await fetch('/api/images/move', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    imageIds: filesToMove,
-                    destinationPath: selectedFolder,
-                }),
+            await moveImagesApi({
+                imageIds: filesToMove,
+                destinationPath: selectedFolder,
+                token,
             });
 
             if (onMoveSuccess) onMoveSuccess();
             if (onClose) onClose();
         } catch (err) {
-            setError(err.response?.data?.message || 'An error occurred during the move.');
+            setError(err.message || 'An error occurred during the move.');
             console.error(err);
         } finally {
             setIsLoading(false);

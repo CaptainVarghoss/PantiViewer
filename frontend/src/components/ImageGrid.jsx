@@ -3,6 +3,8 @@ import ImageCard from '../components/ImageCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import ContextMenu from './ContextMenu';
 import { useAuth } from '../context/AuthContext'; // To get token and settings for authenticated calls
+import { fetchImagesApi, fetchImageByIdApi } from '../api/imageService';
+import { useImageActions } from '../hooks/useImageActions';
 
 /**
  * Component to display the image gallery with infinite scrolling using cursor-based pagination.
@@ -21,8 +23,6 @@ function ImageGrid({
   isSelectMode,
   setIsSelectMode,
   selectedImages,
-  handleMoveSelected,
-  handleMoveSingleImage,
   setSelectedImages,
   trash_only = false,
   contextMenuItems,
@@ -125,17 +125,10 @@ function ImageGrid({
         if (Object.keys(activeStages).length > 0) queryString.append('active_stages_json', JSON.stringify(activeStages));
       }
 
-      const response = await fetch(`/api/images/?${queryString.toString()}`, { headers });
+      // Pass the fully constructed query string to the API service
+      const data = await fetchImagesApi(token, queryString.toString());
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('HTTP Error Details:', response.status, response.statusText, errorText);
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (isInitialLoad) {
+       if (isInitialLoad) {
         setImages(data);
       } else {
         setImages(prevImages => {
@@ -165,24 +158,9 @@ function ImageGrid({
     }
   }, [token, imagesPerPage, sortBy, sortOrder, searchTerm, filters, trash_only, setImages]); // `images` dependency removed to prevent loop
 
-  const fetchImageById = useCallback(async (imageId) => {
-    try {
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-      const response = await fetch(`/api/images/${imageId}`, { headers });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`HTTP Error Details for image ${imageId}:`, response.status, response.statusText, errorText);
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error(`Error fetching image ${imageId}:`, error);
-      return null;
-    }
-  }, [token]);
+  const fetchImageById = useCallback(
+    (imageId) => fetchImageByIdApi(imageId, token),
+    [token]);
 
   const handleImageClick = useCallback(async (event, image) => {
     const imageCardElement = event.currentTarget.getBoundingClientRect();
@@ -267,138 +245,11 @@ function ImageGrid({
       setContextMenu({ ...contextMenu, isVisible: false });
   };
 
+  const imageActions = useImageActions({ setImages, selectedImages, setSelectedImages, setIsSelectMode, openModal });
+
   // Handle click on a context menu item
   const handleMenuItemClick = (action, data) => {
       console.log(`Action: ${action} on Thumbnail ID: ${data.id}`);
-
-      const markImageAsDeleted = async (imageId) => {
-        try {
-          const headers = { 'Authorization': `Bearer ${token}` };
-          const response = await fetch(`/api/images/${imageId}/delete`, {
-            method: 'POST',
-            headers,
-          });
-    
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
-          }
-    
-          // On success, remove the image from the local state to update the UI instantly
-          setImages(prevImages => prevImages.filter(img => img.id !== imageId));
-        } catch (error) {
-          console.error(`Error marking image ${imageId} as deleted:`, error);
-          // Optionally, show an error message to the user
-        }
-      };
-
-      const restoreImage = async (imageId) => {
-        try {
-          const headers = { 'Authorization': `Bearer ${token}` };
-          const response = await fetch(`/api/images/${imageId}/restore`, {
-            method: 'POST',
-            headers,
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
-          }
-
-          // On success, remove the image from the local trash view state
-          setImages(prevImages => prevImages.filter(img => img.id !== imageId));
-        } catch (error) {
-          console.error(`Error restoring image ${imageId}:`, error);
-          alert(`Error restoring image: ${error.message}`);
-        }
-      };
-
-      const deleteImagePermanently = async (imageId) => {
-        if (!window.confirm("Are you sure you want to permanently delete this image? This action cannot be undone.")) return;
-
-        try {
-          const headers = { 'Authorization': `Bearer ${token}` };
-          const response = await fetch(`/api/images/${imageId}/permanent`, {
-            method: 'DELETE',
-            headers,
-          });
-
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-          setImages(prevImages => prevImages.filter(img => img.id !== imageId));
-        } catch (error) {
-          console.error(`Error permanently deleting image ${imageId}:`, error);
-          alert(`Error permanently deleting image: ${error.message}`);
-        }
-      };
-
-      const deleteSelectedImages = async () => {
-        const imageIds = Array.from(selectedImages);
-        if (imageIds.length === 0) return;
-
-        try {
-          const response = await fetch('/api/images/delete-bulk', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(imageIds),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Failed to move images to trash.');
-          }
-
-          // UI updates via websocket, just clear selection
-          setSelectedImages(new Set());
-          setIsSelectMode(false);
-        } catch (error) {
-          console.error("Error during bulk delete from context menu:", error);
-          alert(`Error: ${error.message}`);
-        }
-      };
-
-      const restoreSelectedImages = async () => {
-          const imageIds = Array.from(selectedImages);
-          if (imageIds.length === 0) return;
-
-          try {
-              const response = await fetch('/api/trash/restore', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                  body: JSON.stringify(imageIds),
-              });
-              if (!response.ok) throw new Error('Failed to restore images.');
-              setImages(prev => prev.filter(img => !selectedImages.has(img.id)));
-              setSelectedImages(new Set());
-              setIsSelectMode(false);
-          } catch (error) {
-              alert(`Error: ${error.message}`);
-          }
-      };
-
-      const deleteSelectedPermanently = async () => {
-          const imageIds = Array.from(selectedImages);
-          if (imageIds.length === 0) return;
-
-          if (window.confirm(`Are you sure you want to PERMANENTLY delete ${imageIds.length} selected image(s)? This cannot be undone.`)) {
-              try {
-                  const response = await fetch('/api/trash/delete-permanent', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                      body: JSON.stringify(imageIds),
-                  });
-                  if (!response.ok) throw new Error('Failed to permanently delete images.');
-                  setImages(prev => prev.filter(img => !selectedImages.has(img.id)));
-                  setSelectedImages(new Set());
-                  setIsSelectMode(false);
-              } catch (error) {
-                  alert(`Error: ${error.message}`);
-              }
-          }
-      };
 
       // Implement specific logic based on the action
       switch (action) {
@@ -407,31 +258,28 @@ function ImageGrid({
             setSelectedImages(new Set([data.id]));
             break;
         case 'delete':
-            markImageAsDeleted(data.id);
+            imageActions.markImageAsDeleted(data.id);
             break;
         case 'restore':
-            restoreImage(data.id);
+            imageActions.restoreImage(data.id);
             break;
         case 'delete_permanent':
-            deleteImagePermanently(data.id);
+            imageActions.deleteImagePermanently(data.id);
             break;
         case 'delete_selected':
-            deleteSelectedImages();
+            imageActions.deleteSelectedImages();
             break;
         case 'move':
-            if (handleMoveSingleImage) handleMoveSingleImage(data.id);
+            imageActions.moveSelectedImages(new Set([data.id]));
             break;
         case 'move_selected':
-            if (handleMoveSelected) {
-              handleMoveSelected();
-              setIsSelectMode(false); // Also exit select mode after initiating move
-            }
+            imageActions.moveSelectedImages();
             break;
         case 'restore_selected':
-            restoreSelectedImages();
+            imageActions.restoreSelectedImages();
             break;
         case 'delete_permanent_selected':
-            deleteSelectedPermanently();
+            imageActions.deleteSelectedPermanently();
             break;
         case 'edit_tags_selected':
             openModal('editTags', {
@@ -572,7 +420,7 @@ function ImageGrid({
     if (type === 'refresh_images') {
       if (reason === 'thumbnail_generated' && image_id) {
         // This is a targeted update for a specific thumbnail.
-        console.log(`WebSocket: Received thumbnail generated notification for image ${image_id}. Refreshing card.`);
+       console.log(`WebSocket: Received thumbnail generated notification for image ${image_id}. Refreshing card.`);
         setImages(prevImages => 
           prevImages.map(img => 
             img.id === image_id 
@@ -628,7 +476,7 @@ function ImageGrid({
         };
 
         fetchUpdatedImageList();
-      }
+            }
 
     } else if (type === 'image_deleted') {
       if (!image_id) {

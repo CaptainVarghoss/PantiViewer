@@ -121,6 +121,12 @@ class ImageContent(ImageBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class ImageResponse(ImageContent):
+    thumbnail_url: Optional[str] = None
+    thumbnail_missing: Optional[bool] = False
+
+    model_config = ConfigDict(from_attributes=True)
+
 # --- Setting Schemas ---
 class SettingBase(BaseModel):
     name: str
