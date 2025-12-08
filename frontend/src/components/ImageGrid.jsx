@@ -2,22 +2,15 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ImageCard from '../components/ImageCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import ContextMenu from './ContextMenu';
-import { useAuth } from '../context/AuthContext'; // To get token and settings for authenticated calls
-import { fetchImagesApi, fetchImageByIdApi } from '../api/imageService';
 import { useImageActions } from '../hooks/useImageActions';
+import { useImages } from '../context/ImageContext';
 
 /**
  * Component to display the image gallery with infinite scrolling using cursor-based pagination.
  * Fetches image data from the backend in pages and appends them.
  */
 function ImageGrid({
-  images,
-  setImages,
-  searchTerm,
   setSearchTerm,
-  sortBy,
-  sortOrder,
-  filters,
   webSocketMessage,
   setWebSocketMessage,
   isSelectMode,
@@ -27,24 +20,26 @@ function ImageGrid({
   trash_only = false,
   contextMenuItems,
   openModal,
-  focusedImageId,
-  setFocusedImageId,
 }) {
-  const { token, isAuthenticated, settings } = useAuth();
-  const [imagesLoading, setImagesLoading] = useState(true); // For initial load state
-  const [imagesError, setImagesError] = useState(null);
-  const [lastId, setLastId] = useState(null); // Cursor for pagination: ID of the last image fetched
-  const [lastSortValue, setLastSortValue] = useState(null);
-  const [hasMore, setHasMore] = useState(true); // True if there are more images to load
-  const [isFetchingMore, setIsFetchingMore] = useState(false); // Tracks if a fetch for more images is in progress
+  const {
+    images,
+    setImages,
+    imagesLoading,
+    imagesError,
+    isFetchingMore,
+    hasMore,
+    fetchImages,
+    fetchImageById,
+  } = useImages();
+
+  const [focusedImageId, setFocusedImageId] = useState(null);
+
   const [contextMenu, setContextMenu] = useState({
       isVisible: false,
       x: 0,
       y: 0,
       thumbnailData: null, // Data of the thumbnail that was right-clicked
     });
-
-  const lastIdRef = useRef(lastId);
   const gridRef = useRef(null); // Ref for the grid container
 
   // Variants for the container
@@ -64,103 +59,9 @@ function ImageGrid({
     visible: { opacity: 1, scale: 1, transition: { duration: 0.3 } },
   };
 
-
-  const lastSortValueRef = useRef(lastSortValue);
-  useEffect(() => {
-    lastIdRef.current = lastId;
-    lastSortValueRef.current = lastSortValue;
-  }, [lastId, lastSortValue]);
-
-  // Get imagesPerPage from settings, default to 60 if not available or invalid
-  const imagesPerPage = parseInt(settings.thumb_num) || 60;
-
   const getFocusedImage = useCallback(() => {
     return images.find(img => img.id === focusedImageId);
   }, [images, focusedImageId]);
-
-  // Fetch images function, now accepting an optional cursor (last_id)
-  const fetchImages = useCallback(async (isInitialLoad) => {
-    // The guard against re-fetching is now handled by the callers.
-    // This function is now only responsible for the API call itself.
-
-    if (isInitialLoad) {
-      setImagesLoading(true);
-    } else {
-      setIsFetchingMore(true);
-    }
-    setImagesError(null);
-
-    try {
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-      const limit = isInitialLoad ? imagesPerPage * 2 : imagesPerPage;
-
-      const queryString = new URLSearchParams();
-      queryString.append('limit', limit);
-      queryString.append('sort_by', sortBy);
-      queryString.append('sort_order', sortOrder);
-
-      if (searchTerm) {
-        queryString.append('search_query', searchTerm);
-      }
-
-      // Use refs for cursors in subsequent loads
-      if (!isInitialLoad && lastIdRef.current) {
-        queryString.append('last_id', lastIdRef.current);
-      }
-      if (!isInitialLoad && lastSortValueRef.current) {
-        queryString.append('last_sort_value', lastSortValueRef.current);
-      }
-
-      if (trash_only) {
-        queryString.append('trash_only', 'true');
-      }
-
-      if (filters) {
-        const activeStages = {};
-        filters.forEach(filter => {
-          // Only include filters that have an active stage selected (index 0, 1, or 2).
-          // This correctly excludes disabled filters (index -2).
-          if (filter.activeStageIndex >= 0) activeStages[filter.id] = filter.activeStageIndex;
-        });
-        if (Object.keys(activeStages).length > 0) queryString.append('active_stages_json', JSON.stringify(activeStages));
-      }
-
-      // Pass the fully constructed query string to the API service
-      const data = await fetchImagesApi(token, queryString.toString());
-
-       if (isInitialLoad) {
-        setImages(data);
-      } else {
-        setImages(prevImages => {
-          const uniqueNewImages = data.filter(img => !prevImages.find(p => p.id === img.id));
-          return [...prevImages, ...uniqueNewImages];
-        });
-      }
-
-      if (data.length > 0) {
-        const newLastImage = data[data.length - 1];
-        setLastId(newLastImage.id);
-        let valForSort = newLastImage[sortBy];
-        if (sortBy === 'date_created') valForSort = new Date(valForSort).toISOString();
-        setLastSortValue(valForSort);
-      }
-
-      setHasMore(data.length === limit);
-      // Return the fetched data so the caller can use it
-      return data;
-    } catch (error) {
-      console.error('Error fetching images:', error);
-      setImagesError('Failed to load images. Ensure backend scanner has run and images exist, and you are logged in if required.');
-      setHasMore(false);
-    } finally {
-      setImagesLoading(false);
-      setIsFetchingMore(false);
-    }
-  }, [token, imagesPerPage, sortBy, sortOrder, searchTerm, filters, trash_only, setImages]); // `images` dependency removed to prevent loop
-
-  const fetchImageById = useCallback(
-    (imageId) => fetchImageByIdApi(imageId, token),
-    [token]);
 
   const handleImageClick = useCallback(async (event, image) => {
     const imageCardElement = event.currentTarget.getBoundingClientRect();
@@ -377,40 +278,6 @@ function ImageGrid({
     }
   }, [focusedImageId]);
 
-  // Effect for initial page load and when search/sort parameters change
-  useEffect(() => {
-    if (searchTerm === null) {
-      setImages([]);
-      setImagesLoading(false);
-      return;
-    }
-
-    // Add a guard to prevent fetching if filters are not yet loaded on initial mount.
-    // This is crucial on a fresh page load where filters might be fetched asynchronously.
-    // We check for `filters` being null/undefined OR an empty array, but allow it for trash view.
-    if ((!filters || filters.length === 0) && !trash_only) {
-      setImagesLoading(false);
-      setImages([]); // Also clear images if we are not fetching
-      return;
-    }
-
-    if (isAuthenticated && imagesPerPage > 0) {
-      // Reset cursors and trigger a new initial load
-      setLastId(null);
-      setLastSortValue(null);
-      setHasMore(true);
-      fetchImages(true); // `true` indicates it's an initial load
-    } else if (!isAuthenticated) {
-      setImages([]);
-      setImagesLoading(false);
-      setIsFetchingMore(false);
-      setHasMore(false);
-      setLastId(null);
-      setLastSortValue(null);
-      setImagesError("Please log in to view images.");
-    }
-  }, [isAuthenticated, imagesPerPage, searchTerm, sortBy, sortOrder, filters, trash_only, fetchImages]);
-
   // Effect for handling WebSocket messages
   useEffect(() => {
     if (!webSocketMessage) return;
@@ -430,53 +297,8 @@ function ImageGrid({
         );
       } else { // Handle general refresh (image_added, images_moved, etc.)
         console.log("WebSocket: Received general refresh_images message. Merging new images into grid.");
-
-        // Fetch the first page of images in the background without clearing the current view
-        const fetchUpdatedImageList = async () => {
-          const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-          const queryString = new URLSearchParams();
-          // Fetch a list of the same size as the currently loaded images to accurately determine removals.
-          // Ensure we fetch at least one page's worth of images.
-          queryString.append('limit', Math.max(images.length, imagesPerPage));
-          queryString.append('sort_by', sortBy);
-          queryString.append('sort_order', sortOrder);
-          if (searchTerm) queryString.append('search_query', searchTerm);
-          if (trash_only) queryString.append('trash_only', 'true');
-          if (filters) {
-            const activeStages = {};
-            filters.forEach(filter => {
-              if (filter.activeStageIndex !== -1) activeStages[filter.id] = filter.activeStageIndex;
-            });
-            if (Object.keys(activeStages).length > 0) queryString.append('active_stages_json', JSON.stringify(activeStages));
-          }
-
-          try {
-            const response = await fetch(`/api/images/?${queryString.toString()}`, { headers });
-            if (!response.ok) throw new Error('Failed to fetch updated images');
-            const newImages = await response.json();
-
-            setImages(prevImages => {
-              const newImageIds = new Set(newImages.map(img => img.id));
-
-              // Combine new images with previous images to get a complete list.
-              // Place new images first to ensure they appear at the top if the sort order dictates.
-              const combined = [...newImages, ...prevImages];
-
-              // Use a Map to ensure uniqueness, preserving the order from the combined array.
-              // The first occurrence of an image (from `newImages`) will be kept.
-              const uniqueImages = Array.from(new Map(combined.map(item => [item.id, item])).values());
-
-              // Filter this unique list to only include images that are present in the latest fetch.
-              // This correctly removes images that have been filtered out, while preserving the order of the rest.
-              return uniqueImages.filter(img => newImageIds.has(img.id));
-            });
-          } catch (error) {
-            console.error("Error fetching images for WebSocket merge:", error);
-          }
-        };
-
-        fetchUpdatedImageList();
-            }
+        fetchImages(true, true); // isInitialLoad = true, isWsRefresh = true
+      }
 
     } else if (type === 'image_deleted') {
       if (!image_id) {
@@ -497,7 +319,47 @@ function ImageGrid({
 
     // Clear the message after processing to prevent re-triggering
     setWebSocketMessage(null);
-  }, [webSocketMessage, searchTerm, sortBy, sortOrder, fetchImages]);
+  }, [webSocketMessage, setWebSocketMessage, setImages, fetchImages]);
+
+  // --- Grid Navigation Logic ---
+  const handleGridNavigation = useCallback((key) => {
+    if (!images || images.length === 0) return;
+
+    const gridEl = gridRef.current;
+    if (!gridEl) return;
+
+    const gridStyle = window.getComputedStyle(gridEl);
+    const gridTemplateColumns = gridStyle.getPropertyValue('grid-template-columns');
+    const columns = gridTemplateColumns.split(' ').length;
+
+    let currentIndex = -1;
+    if (focusedImageId !== null) {
+      currentIndex = images.findIndex(img => img.id === focusedImageId);
+    } else {
+      // If no image is focused, focus the first one
+      setFocusedImageId(images[0].id);
+      return;
+    }
+
+    if (currentIndex === -1) return; // Focused image not in current list
+
+    let nextIndex = currentIndex;
+    switch (key) {
+      case 'ArrowLeft': nextIndex = Math.max(0, currentIndex - 1); break;
+      case 'ArrowRight': nextIndex = Math.min(images.length - 1, currentIndex + 1); break;
+      case 'ArrowUp': nextIndex = Math.max(0, currentIndex - columns); break;
+      case 'ArrowDown': nextIndex = Math.min(images.length - 1, currentIndex + columns); break;
+      default: break;
+    }
+
+    if (nextIndex !== currentIndex) {
+      const nextImage = images[nextIndex];
+      if (nextImage) {
+        setFocusedImageId(nextImage.id);
+        // The useEffect for scrolling will handle bringing it into view
+      }
+    }
+  }, [images, focusedImageId]);
 
   // Ref for the element to observe for infinite scrolling
   const observer = useRef();
