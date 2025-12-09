@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ImageCard from '../components/ImageCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import ContextMenu from './ContextMenu';
-import { useImageActions } from '../hooks/useImageActions';
-import { useImages } from '../context/ImageContext';
+import { useImageFeed, useImageActions } from '../hooks/useImageActions';
+import { useImages } from '../context/ImageContext'; // Keep for setImages access
 
 /**
  * Component to display the image gallery with infinite scrolling using cursor-based pagination.
@@ -23,14 +23,14 @@ function ImageGrid({
 }) {
   const {
     images,
-    setImages,
     imagesLoading,
     imagesError,
     isFetchingMore,
     hasMore,
-    fetchImages,
+    fetchMoreImages,
     fetchImageById,
-  } = useImages();
+  } = useImageFeed();
+  const { setImages, fetchImages } = useImages();
 
   const [focusedImageId, setFocusedImageId] = useState(null);
 
@@ -109,7 +109,7 @@ function ImageGrid({
         originBounds: imageCardElement,
         currentImage: freshImageData,
         images: images,
-        fetchMoreImages: hasMore ? () => fetchImages(false) : null,
+        fetchMoreImages: hasMore ? fetchMoreImages : null,
         hasMore: hasMore,
         setImages: setImages, // Pass setImages to the modal
         setSearchTerm: setSearchTerm
@@ -380,7 +380,7 @@ function ImageGrid({
       // If the observed element is intersecting, trigger the next fetch.
       // The guards inside the callback prevent re-fetching.
       if (entries[0].isIntersecting) {
-        fetchImages(false); // `false` indicates it's a subsequent load
+        fetchMoreImages();
       }
     }, {
       root: null, // Use the viewport as the root element
@@ -392,7 +392,7 @@ function ImageGrid({
     if (node) {
       observer.current.observe(node);
     }
-  }, [imagesLoading, isFetchingMore, hasMore, fetchImages]); // The dependency array is now minimal and correct.
+  }, [imagesLoading, isFetchingMore, hasMore, fetchMoreImages]); // The dependency array is now minimal and correct.
 
   return (
     <>

@@ -3,6 +3,7 @@ import { IoChevronBack, IoChevronForward, IoClose, IoExpand, IoContract } from '
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import TagCluster from './TagCluster';
+import { useImageFeed } from '../hooks/useImageActions';
 import Settings from './Settings'; // Import the new unified Settings component
 
 /**
@@ -15,17 +16,20 @@ import Settings from './Settings'; // Import the new unified Settings component
  * @param {string} props.modalType - Type of modal to display ('image' or 'settings').
  * @param {object} [props.modalProps] - Props specific to the modal type.
  *    For 'image': { currentImage, images, onNavigate, searchTerm, setSearchTerm }
+ * @param {object} [props.modalProps.currentImage] - The initial image to display.
  */
-function Modal({ isOpen, onClose, modalType, modalProps = {}, images, filters, refetchFilters, isFullscreen, toggleFullScreen, navigationDirection }) {
+function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFilters, isFullscreen, toggleFullScreen }) {
     const { token, isAuthenticated, settings, isAdmin, logout } = useAuth();
     const modalContentRef = useRef(null);
     const imageSectionRef = useRef(null); // Ref for the image section
 
     // --- Image Modal State & Navigation Logic ---
-    const { currentImage, onNavigate, fetchMoreImages, hasMore, setImages } = modalProps;
+    const { images, hasMore, fetchMoreImages } = useImageFeed();
+    const [currentImage, setCurrentImage] = useState(modalProps.currentImage);
+    const [navigationDirection, setNavigationDirection] = useState(0);
     const currentIndex = (modalType === 'image' && currentImage && images) ? images.findIndex(img => img.id === currentImage.id) : -1;
     const canGoPrev = currentIndex > 0;    
-    const canGoNext = (currentIndex !== -1 && currentIndex < images.length - 1) || (currentIndex === images.length - 1 && hasMore);    
+    const canGoNext = (currentIndex !== -1 && currentIndex < images.length - 1) || (currentIndex === images.length - 1 && hasMore);
 
     const getAnimationBounds = () => modalProps.originBounds;
 
@@ -171,17 +175,18 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, images, filters, r
         if (!images || images.length === 0) return;
         const newIndex = currentIndex + direction;
 
+        setNavigationDirection(direction);
+
         if (newIndex >= 0 && newIndex < images.length) {
-            onNavigate(images[newIndex], direction);
+            setCurrentImage(images[newIndex]);
         } else if (direction > 0 && newIndex >= images.length && hasMore && fetchMoreImages) {
-            const newImages = await fetchMoreImages();
-            // After fetching, the `images` prop on this component will be updated via the effect in App.jsx.
-            // We can then immediately navigate to the first of the new images.
-            if (newImages && newImages.length > 0) {
-                onNavigate(newImages[0], direction);
+            await fetchMoreImages();
+            // The `images` array from the hook will update, and we can try to navigate again.
+            if (images[newIndex]) {
+                setCurrentImage(images[newIndex]);
             }
         }
-    }, [currentIndex, images, onNavigate, hasMore, fetchMoreImages]);
+    }, [currentIndex, images, hasMore, fetchMoreImages]);
 
 
     const handleNext = useCallback(() => navigateImage(1), [navigateImage]); // direction: 1 for next

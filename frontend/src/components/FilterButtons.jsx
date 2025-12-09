@@ -1,5 +1,6 @@
 import React from 'react';
 import * as MdIcons from 'react-icons/md'; // Import all icons
+import { useFilterActions } from '../hooks/useFilterActions';
 
 /**
  * Renders a list of filter buttons for a specific display location.
@@ -9,7 +10,9 @@ import * as MdIcons from 'react-icons/md'; // Import all icons
  * @param {function} props.handleFilterToggle - The function to call when a filter button is clicked.
  * @param {number} props.displayLocation - The location to render buttons for (e.g., 1 for Top bar).
  */
-function FilterButtons({ filters, handleFilterToggle, displayLocation }) {
+function FilterButtons({ displayLocation}) {
+    const { filters, handleFilterToggle } = useFilterActions();
+
     const filtersForLocation = filters.filter(f => f.header_display === displayLocation);
 
     if (filtersForLocation.length === 0) {

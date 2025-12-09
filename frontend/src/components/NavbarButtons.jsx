@@ -5,8 +5,6 @@ import FilterButtons from './FilterButtons';
 function NavbarButtons({
     toggleNavOpen,
     navOpen,
-    handleFilterToggle,
-    filters
 }) {
 
     return (
@@ -20,7 +18,7 @@ function NavbarButtons({
                     )}
                 </button>
             </li>
-            <FilterButtons filters={filters} handleFilterToggle={handleFilterToggle} displayLocation={1} />
+            <FilterButtons displayLocation={1} />
         </>
     );
 }

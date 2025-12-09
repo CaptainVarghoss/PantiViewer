@@ -10,9 +10,6 @@ function NavbarMenuButtons({
     setSortBy,
     sortOrder,
     setSortOrder,
-    filters,
-    handleFilterToggle,
-    displayLocation,
     isSelectMode,
     setIsSelectMode,
     onSettingsClick
@@ -41,7 +38,7 @@ function NavbarMenuButtons({
     return (
         <>
             <ul>
-                <FilterButtons filters={filters} handleFilterToggle={handleFilterToggle} displayLocation={2} />
+                <FilterButtons displayLocation={2} />
             </ul>
             <ul className={`navbar-menu-buttons side-${side}`}>
                 <li>

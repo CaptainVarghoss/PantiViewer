@@ -1,5 +1,4 @@
-import React, {useState} from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import {useState} from 'react';
 import { useAuth } from '../context/AuthContext'; // Import useAuth
 import NavbarButtons from './NavbarButtons';
 import NavbarMenuButtons from './NavbarMenuButtons';
@@ -14,17 +13,8 @@ import SelectionToolbar from './SelectionToolbar';
  * @param {object} props - Component props.
  */
 function Navbar({
-  searchTerm,
-  setSearchTerm,
-  onSearchAndSortChange,
-  sortBy,
-  setSortBy,
-  sortOrder,
-  setSortOrder,  
   isSelectMode,
   setIsSelectMode,
-  filters = [],
-  setFilters = () => {},
   isConnected,
   currentView,
   setCurrentView,
@@ -39,32 +29,9 @@ function Navbar({
 }) {
   const { token, isAuthenticated, user, logout, isAdmin, settings } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
-  const navigate = useNavigate();
 
   const toggleNavOpen = () => {
     setNavOpen(!navOpen);
-  };
-
-  const handleFilterToggle = (filterId) => {
-    setFilters(prevFilters => {
-      return prevFilters.map(f => {
-        if (f.id !== filterId) return f;
-
-        const isThreeStage = f.third_stage !== 'disabled';
-        let nextIndex = f.activeStageIndex;
-
-        if (isThreeStage) {
-          // Cycle through 0, 1, 2
-          nextIndex = (f.activeStageIndex + 1) % 3;
-        } else {
-          // Toggle between 0 and 1
-          nextIndex = f.activeStageIndex === 0 ? 1 : 0;
-        }
-
-        // If the filter was off (index -1), turn it on to the first stage (index 0)
-        return { ...f, activeStageIndex: f.activeStageIndex === -1 ? 0 : nextIndex };
-      });
-    });
   };
 
   // --- Selection Toolbar Handlers ---
@@ -114,25 +81,13 @@ function Navbar({
               navOpen={navOpen}
               setNavOpen={setNavOpen}
               toggleNavOpen={toggleNavOpen}
-              handleFilterToggle={handleFilterToggle}
-              filters={filters}
             />
           </ul>
         )}
 
         {/* Search Bar (visible when authenticated) */}
         {isAuthenticated && (
-          <NavSearchBar
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            onSearchAndSortChange={onSearchAndSortChange}
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            setSortBy={setSortBy}
-            setSortOrder={setSortOrder}
-            filters={filters}
-            setFilters={setFilters}
-          />
+          <NavSearchBar />
         )}
 
         {/* Right Navbar Buttons */}
@@ -142,8 +97,6 @@ function Navbar({
               navOpen={navOpen}
               setNavOpen={setNavOpen}
               toggleNavOpen={toggleNavOpen}
-              handleFilterToggle={handleFilterToggle}
-              filters={filters}
             />
           </ul>
         )}
@@ -153,8 +106,6 @@ function Navbar({
         {settings.left_enabled && (
           <NavbarMenuButtons
             side="left"
-            filters={filters}
-            handleFilterToggle={handleFilterToggle}
             trashCount={trashCount}
             setCurrentView={setCurrentView}
             onSettingsClick={onSettingsClick}
@@ -164,10 +115,6 @@ function Navbar({
           <NavMenuBar 
             navOpen={navOpen}
             setNavOpen={setNavOpen}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            sortOrder={sortOrder}
-            setSortOrder={setSortOrder}
             currentView={currentView}
             setCurrentView={setCurrentView}
             trashCount={trashCount}
@@ -178,8 +125,6 @@ function Navbar({
         {settings.right_enabled && (
           <NavbarMenuButtons
             side="right"
-            filters={filters}
-            handleFilterToggle={handleFilterToggle}
             trashCount={trashCount}
             setCurrentView={setCurrentView}
             isSelectMode={isSelectMode}

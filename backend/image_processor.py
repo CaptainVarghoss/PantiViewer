@@ -106,7 +106,7 @@ def add_file_to_db(
         existing_hash = None
 
         if not is_supported_media(file_full_path):
-            print(f"Ignoring unsupported file: {file_full_path}")
+            # print(f"Ignoring unsupported file: {file_full_path}")
             return None
 
         checksum = get_file_checksum(file_full_path)
@@ -283,7 +283,7 @@ def scan_paths(db: Session):
         db.commit() # Commit any changes from the tag consistency check
 
         # Fetch all existing paths and checksums once at the start.
-        paths_to_scan = db.query(models.ImagePath).all()
+        paths_to_scan = db.query(models.ImagePath).filter(models.ImagePath.is_ignored == False).all()
         existing_image_paths = {p.path for p in paths_to_scan}
         existing_image_checksums = {row[0] for row in db.query(models.ImageContent.content_hash).all()}
 

@@ -2,7 +2,11 @@ import React, { useState, useEffect, useRef, useCallback} from 'react';
 import { IoMdCloseCircle } from "react-icons/io";
 import TagCluster from './TagCluster';
 import { useAuth } from '../context/AuthContext';
+import { useSearch } from '../context/SearchContext';
 import ContextMenu from './ContextMenu';
+import { useImages } from '../context/ImageContext';
+import { useFilters } from '../context/FilterContext';
+
 
 /**
  * A search bar component for the navigation bar.
@@ -15,16 +19,10 @@ import ContextMenu from './ContextMenu';
  * @param {string} props.sortOrder - The current sort order ('ASC' or 'DESC').
  * @param {function} props.setSortOrder - Callback to update the sort order in the parent.
  */
-function NavSearchBar({
-    searchTerm,
-    setSearchTerm,
-    onSearchAndSortChange,
-    sortBy,
-    sortOrder,
-    setSortBy,
-    setSortOrder
-}) {
+function NavSearchBar() {
     const { token } = useAuth();
+    const { searchTerm, setSearchTerm } = useSearch();
+    const { filters } = useFilters();
     const [inputValue, setInputValue] = useState(searchTerm);
     const debounceDelay = 300; // delay in ms
 
