@@ -59,18 +59,20 @@ const buildFolderTree = (imagePaths) => {
 
     // Convert children objects to sorted arrays
     // The previous logic for converting children to arrays is now integrated into the sorting.
+    // The previous logic for converting children to arrays is now integrated into the sorting.
 
     return { tree: rootNodes, parentPaths: allParentPaths };
 };
 
 const FolderTree = ({ webSocketMessage, setWebSocketMessage }) => {
     const { token } = useAuth();
-    const { setSearchTerm } = useSearch();
+    const { searchTerm, setSearchTerm } = useSearch();
     const [folderTree, setFolderTree] = useState([]); // Initialize as an empty array
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedFolderPath, setSelectedFolderPath] = useState(null);
     const [expandedFolders, setExpandedFolders] = useState(new Set()); // Stores paths of expanded folders
+    const [shortNameToPathMap, setShortNameToPathMap] = useState({});
 
     // Effect to handle WebSocket messages
     useEffect(() => {
@@ -97,8 +99,15 @@ const FolderTree = ({ webSocketMessage, setWebSocketMessage }) => {
             }
             const responseData = await response.json(); // Expects { folders: ImagePath[] }
             const { tree, parentPaths } = buildFolderTree(responseData.folders); // Pass the array of ImagePath objects
+            const newShortNameToPathMap = responseData.folders.reduce((acc, folder) => {
+                if (folder.short_name) {
+                    acc[folder.short_name] = folder.path;
+                }
+                return acc;
+            }, {});
             setFolderTree(tree);
             setExpandedFolders(parentPaths); // Expand all parent folders by default
+            setShortNameToPathMap(newShortNameToPathMap);
         } catch (err) {
             setError('Failed to load folders.');
             console.error(err);
@@ -109,7 +118,18 @@ const FolderTree = ({ webSocketMessage, setWebSocketMessage }) => {
 
     useEffect(() => {
         fetchFolders();
-    }, [fetchFolders]); // fetchFolders is memoized with useCallback, so this is correct.
+    }, [fetchFolders]);
+
+    // Effect to sync selected folder path with the search term from context
+    useEffect(() => {
+        if (searchTerm && searchTerm.startsWith('Folder:"') && searchTerm.endsWith('"')) {
+            const shortName = searchTerm.substring('Folder:"'.length, searchTerm.length - 1);
+            setSelectedFolderPath(shortNameToPathMap[shortName] || null);
+        } else {
+            // If searchTerm is cleared or not a folder search, deselect.
+            setSelectedFolderPath(null);
+        }
+    }, [searchTerm, shortNameToPathMap]);
 
     const handleToggleExpand = (path, event) => {
         event.stopPropagation();
@@ -132,10 +152,9 @@ const FolderTree = ({ webSocketMessage, setWebSocketMessage }) => {
 
         const handleSelect = () => {
             // Allow deselecting by clicking the same folder again
-            const newPath = isSelected ? null : node.path;
-            setSelectedFolderPath(newPath);
+            const newSearchTerm = isSelected ? null : `Folder:"${node.name}"`;
             // Update the search term in the context
-            setSearchTerm(newPath ? `Folder:"${newPath}"` : null);
+            setSearchTerm(newSearchTerm);
         };
 
         return (

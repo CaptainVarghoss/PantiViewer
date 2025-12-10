@@ -331,13 +331,15 @@ def build_sqlalchemy_filter(node: Node, ImageContent, Tag, ImageLocation):
 
         # Define how to search based on the term's type and original input style (quoted vs. unquoted).
         if node.term_type == TOKEN_TYPE_PHRASE:
-            # If it's a standalone quoted phrase (e.g., "blue sky"), search for it
-            # partially (contains) across exif_data, folder, filename, and tag names.
-            meta_filter = ImageContent.exif_data.ilike(f"%{search_term}%")
-            folder_filter = ImageLocation.path.ilike(f"%{search_term}%")
-            filename_filter = ImageLocation.filename.ilike(f"%{search_term}%")
-            # For tags, use `any()` to check if any associated tag's name matches.
-            tag_filter = ImageContent.tags.any(Tag.name.ilike(f"%{search_term}%"))
+            # If it's a standalone quoted phrase (e.g., "cat"), search for it as a whole word
+            # across exif_data, folder, filename, and tag names.
+            # We use regex with word boundaries (\b) for this.
+            # re.escape is used to safely handle special characters in the search term.
+            regex_pattern = r'\b' + re.escape(search_term) + r'\b'
+            meta_filter = ImageContent.exif_data.regexp_match(regex_pattern, flags='i')
+            folder_filter = ImageLocation.path.regexp_match(regex_pattern, flags='i')
+            filename_filter = ImageLocation.filename.regexp_match(regex_pattern, flags='i')
+            tag_filter = ImageContent.tags.any(Tag.name.regexp_match(regex_pattern, flags='i'))
             return or_(meta_filter, folder_filter, filename_filter, tag_filter)
 
         elif node.term_type == TOKEN_TYPE_WORD:
@@ -361,13 +363,25 @@ def build_sqlalchemy_filter(node: Node, ImageContent, Tag, ImageLocation):
 
         elif node.term_type == TOKEN_TYPE_KEYWORD_FOLDER:
             # For the 'FOLDER:' keyword:
-            # If the value was originally a quoted phrase (e.g., FOLDER:"Summer Trip"),
-            # perform an exact match on the folder name.
             if node.value_original_type == TOKEN_TYPE_PHRASE:
-                return ImageLocation.path == search_term # Exact folder name match
+                # If quoted, search for the term as a whole word on EITHER the full path OR the short_name.
+                regex_pattern = r'\b' + re.escape(search_term) + r'\b'
+                return or_(
+                    ImageLocation.path.regexp_match(regex_pattern, flags='i'),
+                    ImageLocation.path.in_(
+                        expression.select(ImagePath.path).where(
+                            ImagePath.short_name.ilike(search_term)
+                        )
+                    )
+                )
             else: # If the value was an unquoted word (e.g., FOLDER:documents)
-                # Perform a partial (contains) match on the folder name.
-                return ImageLocation.path.ilike(f"%{search_term}%") # Partial folder name match
+                # If unquoted, perform a partial match on EITHER the full path OR the short_name.
+                return or_(
+                    ImageLocation.path.ilike(f"%{search_term}%"),
+                    ImageLocation.path.in_(
+                        expression.select(ImagePath.path).where(ImagePath.short_name.ilike(f"%{search_term}%"))
+                    )
+                )
     # If for any reason an unexpected node type is encountered, or for an effectively empty query,
     # return `expression.true()`, which means this filter clause won't restrict results.
     return expression.true()
