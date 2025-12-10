@@ -32,7 +32,7 @@ function FilterButtons({ displayLocation}) {
                 const IconComponent = activeIconName ? MdIcons[activeIconName] : null;
 
                 return (
-                    <li>
+                    <li key={filter.id}>
                         <button key={filter.id} className={`btn-base filter-menu-button ${isActive ? 'active' : ''} ${isActive && activeColorName ? activeColorName : ''}`} onClick={() => handleFilterToggle(filter.id)} title={filter.name}>
                             {IconComponent && <IconComponent size={20} />}
                         </button>

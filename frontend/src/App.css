@@ -857,6 +857,7 @@ form .section-list .section-item .section-fields:nth-child(3) {
     padding: 0rem;
     max-width: 200px;
     height: auto;
+    border-radius: 0.5rem;
 }
 
 .image-card img:hover {
