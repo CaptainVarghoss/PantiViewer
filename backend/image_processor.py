@@ -183,18 +183,9 @@ def add_file_to_db(
                 ).filter_by(content_hash=new_location.content_hash).first()
 
                 if image_content: # Just need to know if it exists to send a message
-                    message_payload = {
-                        "type": "refresh_images",
-                        "reason": "image_added"
-                    }
-
                     # Determine who to send the message to based on the folder's admin_only status
                     is_admin_only = image_path_entry.admin_only
-                    if is_admin_only:
-                        asyncio.run_coroutine_threadsafe(manager.broadcast_to_admins_json(message_payload), loop)
-                    else: # For public folders, broadcast to all users (including anonymous)
-                        asyncio.run_coroutine_threadsafe(manager.broadcast_json(message_payload), loop)
-                    print(f"Sent 'refresh_images' (image_added) notification for image {new_location.id} (admin_only: {is_admin_only})")
+                    asyncio.run_coroutine_threadsafe(manager.schedule_refresh_broadcast(admin_only=is_admin_only), loop)
 
             return new_location
         except IntegrityError:
@@ -364,8 +355,6 @@ def generate_thumbnail_in_background(
 ):
     thread_db = database.SessionLocal() # This session is for this background thread
     try:
-        print(f"Background: Starting thumbnail generation for image ID {image_id}, checksum {image_checksum}")
-
         thumb_size_setting = thread_db.query(models.Setting).filter_by(name='thumb_size').first()
         # Fallback to config if setting is not in DB
         thumb_size = config.THUMBNAIL_SIZE
@@ -378,7 +367,6 @@ def generate_thumbnail_in_background(
             output_filename_base=image_checksum,
             thumb_size=thumb_size
         )
-        print(f"Background: Finished thumbnail generation for image ID {image_id}")
         
         # Fetch the full image object to send to the frontend
         db_image_location = thread_db.query(models.ImageLocation).options(
@@ -389,23 +377,12 @@ def generate_thumbnail_in_background(
             # Notify frontend via WebSocket that a thumbnail has been generated
             # This can be simplified to just a refresh message. The client will refetch
             # and the thumbnail URL will resolve correctly on the next render.
-            message = {
-                "type": "refresh_images",
-                "reason": "thumbnail_generated",
-                "image_id": image_id
-            }
             # Determine who to send the message to based on the image's path visibility
             image_path_entry = thread_db.query(models.ImagePath).filter_by(path=db_image_location.path).first()
             is_admin_only = image_path_entry.admin_only if image_path_entry else False
 
             if loop:
-                if is_admin_only:
-                    asyncio.run_coroutine_threadsafe(manager.broadcast_to_admins_json(message), loop)
-                else: # For public folders, broadcast to all users (including anonymous)
-                    asyncio.run_coroutine_threadsafe(manager.broadcast_json(message), loop)
-                print(f"Sent 'refresh_images' (thumbnail_generated) notification for image ID {image_id} (admin_only: {is_admin_only})")
-            else:
-                print(f"Warning: No event loop provided to 'generate_thumbnail_in_background'. Cannot send WebSocket notification for image ID {image_id}.")
+                asyncio.run_coroutine_threadsafe(manager.schedule_refresh_broadcast(admin_only=is_admin_only), loop)
     except Exception as e:
         print(f"Background: Error generating thumbnail for image ID {image_id}: {e}")
     finally:
@@ -479,7 +456,6 @@ def generate_thumbnail(
         thumb_img.save(thumb_filepath, "webp")
         thumb_img.close()
         image_to_process.close()
-        print(f"Generated thumbnail: {thumb_filepath}")
 
     except PILImage.UnidentifiedImageError:
         print(f"Warning: Could not identify image format for {source_filepath}. Skipping image thumbnail generation.")
@@ -491,7 +467,6 @@ def generate_thumbnail(
         if (os.path.exists(temp_image_path)):
             try:
                 os.remove(temp_image_path)
-                print(f"Deleted temporary thumbnail file: {temp_image_path}")
             except Exception as e:
                 print(f"Error deleting temporary file {temp_image_path}: {e}")
                 return None

@@ -14,7 +14,8 @@ class WebSocketManager:
         # Connections for authenticated admin users
         self.admin_connections: Dict[int, WebSocket] = {}
         # Debouncing state
-        self.debounce_task: Optional[asyncio.Task] = None
+        self.public_debounce_task: Optional[asyncio.Task] = None
+        self.admin_debounce_task: Optional[asyncio.Task] = None
         self.debounce_delay: float = 1.5  # seconds
 
     async def connect(self, websocket: WebSocket, user: Optional[models.User] = None):
@@ -55,37 +56,48 @@ class WebSocketManager:
             # This can happen if the client disconnects abruptly
             print(f"Error sending message to client {websocket.client.host}: {e}")
     
-    async def _debounced_broadcast_task(self):
+    async def _debounced_broadcast_task(self, admin_only: bool):
         """
         The actual task that waits and then sends the broadcast.
         """
         await asyncio.sleep(self.debounce_delay)
         message = {"type": "refresh_images", "reason": "batch_update"}
-        print(f"Debounce delay of {self.debounce_delay}s elapsed. Broadcasting general refresh.")
-        await self.broadcast_json(message)
-        self.debounce_task = None # Clear the task reference once done
+        
+        if admin_only:
+            await self.broadcast_to_admins_json(message)
+            self.admin_debounce_task = None
+        else:
+            await self.broadcast_json(message)
+            self.public_debounce_task = None
 
-    async def schedule_general_refresh_broadcast(self):
+    async def schedule_refresh_broadcast(self, admin_only: bool = False):
         """
-        Schedules a general 'refresh_images' broadcast, debouncing rapid calls.
-        If called multiple times within the debounce delay, the timer is reset.
+        Schedules a 'refresh_images' broadcast, debouncing rapid calls.
+        Manages separate debounces for public and admin-only refreshes.
         """
-        # If a broadcast is already scheduled, cancel it to reset the timer.
-        if self.debounce_task:
-            self.debounce_task.cancel()
-            print("Debounce timer reset due to new activity.")
+        if admin_only:
+            # If a public broadcast is already scheduled, admins will get it, so we don't need a separate admin one.
+            if self.public_debounce_task and not self.public_debounce_task.done():
+                return
 
-        # Schedule the new broadcast task.
-        self.debounce_task = asyncio.create_task(self._debounced_broadcast_task())
-        print("General refresh broadcast scheduled.")
+            if self.admin_debounce_task and not self.admin_debounce_task.done():
+                self.admin_debounce_task.cancel()
+            
+            self.admin_debounce_task = asyncio.create_task(self._debounced_broadcast_task(admin_only=True))
+        else: # Public broadcast
+            # If an admin-only broadcast is scheduled, cancel it because this public one will cover admins too.
+            if self.admin_debounce_task and not self.admin_debounce_task.done():
+                self.admin_debounce_task.cancel()
+            
+            if self.public_debounce_task and not self.public_debounce_task.done():
+                self.public_debounce_task.cancel()
+
+            self.public_debounce_task = asyncio.create_task(self._debounced_broadcast_task(admin_only=False))
 
     async def broadcast_json(self, message: dict):
         """
         Sends a JSON message to all connected clients (anonymous, users, and admins).
         """
-        if message.get("reason") != "batch_update":
-            print(f"Broadcasting immediate message to all clients: {message.get('type')}")
-        
         all_connections = self.anonymous_connections + list(self.user_connections.values()) + list(self.admin_connections.values())
         # Use asyncio.gather for concurrent sending to all clients
         if all_connections:
@@ -95,7 +107,6 @@ class WebSocketManager:
         """
         Sends a JSON message only to authenticated admin clients.
         """
-        print("Broadcasting message to admin clients.")
         for connection in self.admin_connections.values():
             await self._send_json(connection, message)
 
