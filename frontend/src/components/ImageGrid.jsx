@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ImageCard from '../components/ImageCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import ContextMenu from './ContextMenu';
+import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useImageFeed, useImageActions } from '../hooks/useImageActions';
 import { useImages } from '../context/ImageContext'; // Keep for setImages access
 
@@ -112,7 +113,8 @@ function ImageGrid({
         fetchMoreImages: hasMore ? fetchMoreImages : null,
         hasMore: hasMore,
         setImages: setImages, // Pass setImages to the modal
-        setSearchTerm: setSearchTerm
+        setSearchTerm: setSearchTerm,
+        onNavigate: setFocusedImageId, // Pass the focus setter to the modal
       });
     }
   }, [isSelectMode, openModal, images, setSearchTerm, setSelectedImages, focusedImageId, fetchImageById, setImages, setFocusedImageId, hasMore, fetchImages]);
@@ -321,45 +323,28 @@ function ImageGrid({
     setWebSocketMessage(null);
   }, [webSocketMessage, setWebSocketMessage, setImages, fetchImages]);
 
-  // --- Grid Navigation Logic ---
-  const handleGridNavigation = useCallback((key) => {
-    if (!images || images.length === 0) return;
-
-    const gridEl = gridRef.current;
-    if (!gridEl) return;
-
-    const gridStyle = window.getComputedStyle(gridEl);
-    const gridTemplateColumns = gridStyle.getPropertyValue('grid-template-columns');
-    const columns = gridTemplateColumns.split(' ').length;
-
-    let currentIndex = -1;
-    if (focusedImageId !== null) {
-      currentIndex = images.findIndex(img => img.id === focusedImageId);
-    } else {
-      // If no image is focused, focus the first one
-      setFocusedImageId(images[0].id);
-      return;
+  // Wrapper for handleImageClick to be used by useGlobalHotkeys
+  const handleImageOpen = useCallback((_event, imageToOpen) => {
+    const imageCardElement = document.querySelector(`[data-image-id="${imageToOpen.id}"]`);
+    if (imageCardElement) {
+      // Create a synthetic event with `currentTarget` for `handleImageClick`
+      const fakeEvent = { currentTarget: imageCardElement };
+      handleImageClick(fakeEvent, imageToOpen);
     }
+  }, [handleImageClick]);
 
-    if (currentIndex === -1) return; // Focused image not in current list
-
-    let nextIndex = currentIndex;
-    switch (key) {
-      case 'ArrowLeft': nextIndex = Math.max(0, currentIndex - 1); break;
-      case 'ArrowRight': nextIndex = Math.min(images.length - 1, currentIndex + 1); break;
-      case 'ArrowUp': nextIndex = Math.max(0, currentIndex - columns); break;
-      case 'ArrowDown': nextIndex = Math.min(images.length - 1, currentIndex + columns); break;
-      default: break;
-    }
-
-    if (nextIndex !== currentIndex) {
-      const nextImage = images[nextIndex];
-      if (nextImage) {
-        setFocusedImageId(nextImage.id);
-        // The useEffect for scrolling will handle bringing it into view
-      }
-    }
-  }, [images, focusedImageId]);
+  // Use the global hotkeys hook
+  useGlobalHotkeys({
+    isGridActive: true,
+    focusedImage: getFocusedImage(),
+    handleImageOpen: handleImageOpen,
+    isContextMenuOpen: contextMenu.isVisible,
+    closeContextMenu: handleCloseContextMenu,
+    // Pass state for navigation logic now inside the hook
+    images: images,
+    gridRef: gridRef,
+    setFocusedImageId: setFocusedImageId,
+  });
 
   // Ref for the element to observe for infinite scrolling
   const observer = useRef();
@@ -409,6 +394,7 @@ function ImageGrid({
             <motion.div
               layout
               key={image.id}
+              data-image-id={image.id}
               variants={imageCardVariants}
               initial="hidden"
               animate="visible"

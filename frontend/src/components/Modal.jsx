@@ -3,6 +3,8 @@ import { IoChevronBack, IoChevronForward, IoClose, IoExpand, IoContract } from '
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import TagCluster from './TagCluster';
+import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
+import { useHotkeyContext } from '../context/HotkeyContext';
 import { useImageFeed } from '../hooks/useImageActions';
 import Settings from './Settings'; // Import the new unified Settings component
 
@@ -20,6 +22,7 @@ import Settings from './Settings'; // Import the new unified Settings component
  */
 function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFilters, isFullscreen, toggleFullScreen }) {
     const { token, isAuthenticated, settings, isAdmin, logout } = useAuth();
+    const { pushContext, popContext } = useHotkeyContext();
     const modalContentRef = useRef(null);
     const imageSectionRef = useRef(null); // Ref for the image section
 
@@ -31,7 +34,18 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
     const canGoPrev = currentIndex > 0;    
     const canGoNext = (currentIndex !== -1 && currentIndex < images.length - 1) || (currentIndex === images.length - 1 && hasMore);
 
-    const getAnimationBounds = () => modalProps.originBounds;
+    const getAnimationBounds = () => {
+        // On exit, we need the bounds of the CURRENT image in the grid, not the original one.
+        if (currentImage) {
+            const gridCard = document.querySelector(`[data-image-id="${currentImage.id}"]`);
+            if (gridCard) {
+                return gridCard.getBoundingClientRect();
+            }
+        }
+        // Fallback to the originally clicked element's bounds if the current one isn't found.
+        // This can happen if the image has been filtered out of the grid in the background.
+        return modalProps.originBounds;
+    };
 
     // --- Settings Modal State and Logic ---
     const [openSections, setOpenSections] = useState({});
@@ -162,6 +176,17 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
         };
     }, [isOpen, currentImage, usePreview, isAuthenticated, token, modalType]);
 
+    // Set the active hotkey context when the modal opens or closes
+    useEffect(() => {
+        if (isOpen) {
+            pushContext('modal');
+            // Return a cleanup function that will be called when the modal closes (or component unmounts)
+            return () => {
+                popContext();
+            };
+        }
+    }, [isOpen, pushContext, popContext]);
+
     const canModifyTags = isAdmin || (settings?.allow_tag_add === true);
 
     let imageUrlToDisplay;
@@ -178,19 +203,39 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
         setNavigationDirection(direction);
 
         if (newIndex >= 0 && newIndex < images.length) {
-            setCurrentImage(images[newIndex]);
+            const newImage = images[newIndex];
+            setCurrentImage(newImage);
+            // If an onNavigate callback is provided, call it with the new image's ID.
+            modalProps.onNavigate?.(newImage.id);
         } else if (direction > 0 && newIndex >= images.length && hasMore && fetchMoreImages) {
             await fetchMoreImages();
             // The `images` array from the hook will update, and we can try to navigate again.
             if (images[newIndex]) {
-                setCurrentImage(images[newIndex]);
+                const newImage = images[newIndex];
+                setCurrentImage(newImage);
+                modalProps.onNavigate?.(newImage.id);
             }
         }
-    }, [currentIndex, images, hasMore, fetchMoreImages]);
+    }, [currentIndex, images, hasMore, fetchMoreImages, modalProps.onNavigate]);
 
 
     const handleNext = useCallback(() => navigateImage(1), [navigateImage]); // direction: 1 for next
     const handlePrev = useCallback(() => navigateImage(-1), [navigateImage]); // direction: -1 for prev
+
+    // Use the global hotkeys hook for modal-specific actions
+    useGlobalHotkeys({
+        isModalOpen: isOpen && modalType === 'image',
+        modalType: modalType,
+        closeModal: onClose,
+        canGoPrev: canGoPrev,
+        canGoNext: canGoNext,
+        handlePrev: handlePrev,
+        handleNext: handleNext,
+        toggleFullScreen: toggleFullScreen,
+        // The modal takes priority, so grid-specific handlers are not needed here.
+        // The hook's internal logic will correctly prioritize the modal.
+    });
+
 
     const handleTouchStart = useCallback((e) => {
         setTouchStartX(e.touches[0].clientX);

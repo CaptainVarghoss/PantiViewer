@@ -8,6 +8,7 @@ import { ImageProvider } from './context/ImageContext';
 import { AppContent } from './components/AppContent';
 
 import './App.css';
+import { HotkeyProvider } from './context/HotkeyContext';
 
 
 
@@ -29,26 +30,28 @@ function App() {
   }
 
   return (
-    <SearchProvider>
-      <FilterProvider>
-        <div className="main-content">
-          {isAuthenticated ? (
-            <ImageProvider
-              trash_only={currentView === 'trash'}
-            >
-              <AppContent
-                currentView={currentView}
-                setCurrentView={setCurrentView}
-              />
-            </ImageProvider>
-          ) : (
-            <main>
-              <UnauthenticatedApp />
-            </main>
-          )}
-        </div>
-      </FilterProvider>
-    </SearchProvider>
+    <HotkeyProvider>
+      <SearchProvider>
+        <FilterProvider>
+          <div className="main-content">
+            {isAuthenticated ? (
+              <ImageProvider
+                trash_only={currentView === 'trash'}
+              >
+                <AppContent
+                  currentView={currentView}
+                  setCurrentView={setCurrentView}
+                />
+              </ImageProvider>
+            ) : (
+              <main>
+                <UnauthenticatedApp />
+              </main>
+            )}
+          </div>
+        </FilterProvider>
+      </SearchProvider>
+    </HotkeyProvider>
   );
 }
 
