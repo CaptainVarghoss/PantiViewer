@@ -131,11 +131,6 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
     useEffect(() => {
         if (modalType !== 'image') return;
 
-        if (blobImageUrl) {
-            URL.revokeObjectURL(blobImageUrl);
-            setBlobImageUrl(null);
-        }
-
         if (!isOpen || !currentImage || usePreview || !isAuthenticated) return;
 
         const fetchOriginalImage = async () => {
@@ -168,13 +163,14 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
 
         fetchOriginalImage();
 
+        // Cleanup function: This will be called when the component unmounts
+        // or when the dependencies of the effect change.
         return () => {
             if (blobImageUrl) {
                 URL.revokeObjectURL(blobImageUrl);
-                setBlobImageUrl(null);
             }
         };
-    }, [isOpen, currentImage, usePreview, isAuthenticated, token, modalType]);
+    }, [isOpen, currentImage, usePreview, isAuthenticated, token, modalType]); // blobImageUrl is intentionally omitted
 
     // Set the active hotkey context when the modal opens or closes
     useEffect(() => {
@@ -419,7 +415,7 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
                             <div className="section-row">
                                 <div className="section-fields" style={{width: '100%'}}>
                                     <div className="form-group modal-tags">
-                                        <label>Tags</label>
+                                        Tags
                                         <TagCluster.Popup type="image_tags" itemId={currentImage.id} isEmbedded={true} />
                                     </div>
                                 </div>

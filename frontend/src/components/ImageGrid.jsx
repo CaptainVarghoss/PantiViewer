@@ -280,45 +280,33 @@ function ImageGrid({
 
   // Effect for handling WebSocket messages
   useEffect(() => {
-    if (!webSocketMessage) return;
-
-    const { type, reason, image_id, image_ids } = webSocketMessage;
-
-    if (type === 'refresh_images') {
-      if (reason === 'thumbnail_generated' && image_id) {
-        // This is a targeted update for a specific thumbnail.
-       console.log(`WebSocket: Received thumbnail generated notification for image ${image_id}. Refreshing card.`);
-        setImages(prevImages => 
-          prevImages.map(img => 
-            img.id === image_id 
-              ? { ...img, refreshKey: new Date().getTime() } // Update refreshKey to trigger re-render in ImageCard
-              : img
-          )
-        );
-      } else { // Handle general refresh (image_added, images_moved, etc.)
-        console.log("WebSocket: Received general refresh_images message. Merging new images into grid.");
-        fetchImages(true, true); // isInitialLoad = true, isWsRefresh = true
-      }
-
-    } else if (type === 'image_deleted') {
-      if (!image_id) {
-        console.error("WebSocket message of type 'image_deleted' did not contain an 'image_id'.");
-        return;
-      }
-      console.log("Removing image from grid from WebSocket:", image_id);
-      setImages(prevImages => prevImages.filter(img => img.id !== image_id));
-    } else if (type === 'images_deleted') {
-      if (!image_ids || !Array.isArray(image_ids)) {
-        console.error("WebSocket message of type 'images_deleted' did not contain an 'image_ids' array.");
-        return;
-      }
-      console.log("Removing multiple images from grid via WebSocket:", image_ids);
-      const idsToRemove = new Set(image_ids);
-      setImages(prevImages => prevImages.filter(img => !idsToRemove.has(img.id)));
+    if (!webSocketMessage || webSocketMessage.length === 0) {
+      return;
     }
+    
+    // Since the backend now debounces, we can process messages directly.
+    // We only need to look for the last relevant message in the batch.
+    const hasGeneralRefresh = webSocketMessage.some(msg => msg.type === 'refresh_images');
+    const deletedImageIds = new Set(
+      webSocketMessage.flatMap(msg => {
+        if (msg.type === 'image_deleted') return [msg.image_id];
+        if (msg.type === 'images_deleted') return msg.image_ids || [];
+        return [];
+      }).filter(Boolean)
+    );
 
-    // Clear the message after processing to prevent re-triggering
-    setWebSocketMessage(null);
+    if (hasGeneralRefresh) {
+      console.log("WebSocket: Received general refresh message. Fetching latest image data.");
+      // isInitialLoad=true tells the hook to fetch from page 1 and merge.
+      // isWsRefresh=true can be used by the hook to avoid showing a loading spinner.
+      fetchImages(true, true);
+    } else if (deletedImageIds.size > 0) {
+      console.log("WebSocket: Removing deleted images from grid:", Array.from(deletedImageIds));
+      setImages(prevImages => prevImages.filter(img => !deletedImageIds.has(img.id)));
+    }
+    
+    // Clear the message queue after processing.
+    setWebSocketMessage([]);
   }, [webSocketMessage, setWebSocketMessage, setImages, fetchImages]);
 
   // Wrapper for handleImageClick to be used by useGlobalHotkeys

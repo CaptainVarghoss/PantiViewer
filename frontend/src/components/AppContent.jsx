@@ -18,7 +18,7 @@ export function AppContent({
 }) {
   const { token, isAdmin } = useAuth();
 
-  const [webSocketMessage, setWebSocketMessage] = useState(null);
+  const [webSocketMessage, setWebSocketMessage] = useState([]);
   const [trashCount, setTrashCount] = useState(0);
   const [selectedImages, setSelectedImages] = useState(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -91,7 +91,10 @@ export function AppContent({
 
   const handleWebSocketMessage = useCallback((message) => {
     console.log("File change detected:", message);
-    setWebSocketMessage(message);
+    // Use the functional update form to prevent race conditions.
+    // This ensures that we're always appending to the most recent state,
+    // even if multiple messages arrive before a re-render.
+    setWebSocketMessage(prevMessages => [...prevMessages, message]);
   }, []);
 
   useGlobalHotkeys({

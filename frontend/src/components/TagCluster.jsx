@@ -309,15 +309,16 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
             {canModifyTags && (
                 <div className="tag-create-container">
                     <div className={`tag-create-form-wrapper ${showCreateForm ? 'visible' : ''}`}>
-                        <form onSubmit={handleCreateTag} className="tag-create-form">
+                        <form onSubmit={handleCreateTag} className="tag-create-form" id="tag-create-form">
                             <input
                                 type="text"
+                                name="newTagName"
                                 value={newTagName}
                                 onChange={(e) => setNewTagName(e.target.value)}
                                 placeholder="Create new tag..."
                                 className="form-input-base"
                             />
-                            <button type="submit" disabled={!newTagName.trim()} className="btn-base btn-green">Add</button>
+                            <button type="submit" name="submit" disabled={!newTagName.trim()} className="btn-base btn-green">Add</button>
                         </form>
                     </div>
                     <button

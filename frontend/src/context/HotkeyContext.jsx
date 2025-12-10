@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useCallback } from 'react';
 
 const HotkeyContext = createContext();
 
@@ -7,18 +7,18 @@ export const useHotkeyContext = () => useContext(HotkeyContext);
 export const HotkeyProvider = ({ children }) => {
   const [contextStack, setContextStack] = useState(['grid']); // Default with 'grid'
 
-  const pushContext = (context) => {
+  const pushContext = useCallback((context) => {
     setContextStack(prevStack => [...prevStack, context]);
-  };
+  }, []);
 
-  const popContext = () => {
+  const popContext = useCallback(() => {
     setContextStack(prevStack => {
       if (prevStack.length > 1) {
         return prevStack.slice(0, -1);
       }
       return prevStack; // Keep at least one context in the stack
     });
-  };
+  }, []);
 
   const value = {
     activeContext: contextStack[contextStack.length - 1],

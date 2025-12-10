@@ -1,5 +1,6 @@
 import json
 from typing import List, Dict, Optional
+import asyncio
 from fastapi import WebSocket, Depends
 
 import models
@@ -12,6 +13,9 @@ class WebSocketManager:
         self.user_connections: Dict[int, WebSocket] = {}
         # Connections for authenticated admin users
         self.admin_connections: Dict[int, WebSocket] = {}
+        # Debouncing state
+        self.debounce_task: Optional[asyncio.Task] = None
+        self.debounce_delay: float = 1.5  # seconds
 
     async def connect(self, websocket: WebSocket, user: Optional[models.User] = None):
         """
@@ -50,15 +54,42 @@ class WebSocketManager:
         except Exception as e:
             # This can happen if the client disconnects abruptly
             print(f"Error sending message to client {websocket.client.host}: {e}")
+    
+    async def _debounced_broadcast_task(self):
+        """
+        The actual task that waits and then sends the broadcast.
+        """
+        await asyncio.sleep(self.debounce_delay)
+        message = {"type": "refresh_images", "reason": "batch_update"}
+        print(f"Debounce delay of {self.debounce_delay}s elapsed. Broadcasting general refresh.")
+        await self.broadcast_json(message)
+        self.debounce_task = None # Clear the task reference once done
+
+    async def schedule_general_refresh_broadcast(self):
+        """
+        Schedules a general 'refresh_images' broadcast, debouncing rapid calls.
+        If called multiple times within the debounce delay, the timer is reset.
+        """
+        # If a broadcast is already scheduled, cancel it to reset the timer.
+        if self.debounce_task:
+            self.debounce_task.cancel()
+            print("Debounce timer reset due to new activity.")
+
+        # Schedule the new broadcast task.
+        self.debounce_task = asyncio.create_task(self._debounced_broadcast_task())
+        print("General refresh broadcast scheduled.")
 
     async def broadcast_json(self, message: dict):
         """
         Sends a JSON message to all connected clients (anonymous, users, and admins).
         """
-        print("Broadcasting message to all clients.")
+        if message.get("reason") != "batch_update":
+            print(f"Broadcasting immediate message to all clients: {message.get('type')}")
+        
         all_connections = self.anonymous_connections + list(self.user_connections.values()) + list(self.admin_connections.values())
-        for connection in all_connections:
-            await self._send_json(connection, message)
+        # Use asyncio.gather for concurrent sending to all clients
+        if all_connections:
+            await asyncio.gather(*(self._send_json(conn, message) for conn in all_connections))
 
     async def broadcast_to_admins_json(self, message: dict):
         """

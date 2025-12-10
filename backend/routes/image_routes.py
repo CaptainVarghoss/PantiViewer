@@ -156,12 +156,10 @@ def read_images(
 
         # Check if thumbnail exists, if not, trigger generation in background
         expected_thumbnail_path = os.path.join(config.THUMBNAILS_DIR, f"{img.content_hash}_thumb.webp")
+        thumbnail_url = f"/static_assets/generated_media/thumbnails/{img.content_hash}_thumb.webp"
         if os.path.exists(expected_thumbnail_path):
-            thumbnail_url = f"/static_assets/generated_media/thumbnails/{img.content_hash}_thumb.webp"
             thumbnail_missing = False
         else:
-            print(f"Thumbnail for {location.filename} (ID: {location.id}) not found. Triggering background generation.")
-            thumbnail_url = "/placeholder.png" # The frontend will use this directly
             thumbnail_missing = True
             
             original_filepath = os.path.join(location.path, location.filename)

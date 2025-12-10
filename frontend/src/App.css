@@ -877,6 +877,8 @@ form .section-list .section-item .section-fields:nth-child(3) {
 
 .image-card-inner {
   display: flex;
+  min-width: 200px;
+  min-height: 200px;
 }
 
 /* In select mode, all images are dimmed by default */
@@ -894,6 +896,41 @@ form .section-list .section-item .section-fields:nth-child(3) {
 /* In select mode, selected images are brightened back to normal */
 .image-grid.select-mode .image-card.selected {
   filter: brightness(1.0);
+}
+
+.thumbnail-spinner,
+.thumbnail {
+  /* Make both the spinner and the image fill the container */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* For the image */
+  border-radius: var(--border-radius-medium);
+  backface-visibility: hidden; /* Improves performance during 3D transforms */
+}
+
+.thumbnail-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--background-color-secondary);
+}
+
+.thumbnail-spinner .spinner-icon {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--text-color-secondary);
+  border-top-color: var(--accent-color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .trash-view-header {
