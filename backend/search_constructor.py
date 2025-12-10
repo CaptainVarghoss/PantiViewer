@@ -409,38 +409,37 @@ def generate_image_search_filter(
             meaning no results will be returned.
     """
 
-    # This will hold clauses for 'hide' filters.
-    hide_filter_clauses = [] # Initialize list for hide clauses.
-
-    # This will hold the final filter clauses for each 'show_only' filter
-    show_only_clauses = []
-
-    # Parse the active stages JSON from the query parameter
-    active_stages = {}
-    if active_stages_json and active_stages_json != 'null':
-        try:
-            active_stages = json.loads(active_stages_json)
-        except json.JSONDecodeError:
-            print(f"Warning: Could not decode active_stages_json: {active_stages_json}")
-            active_stages = {}
-
     # Fetch filters from the database
     db_filters = db.query(Filter).options(joinedload(Filter.tags), joinedload(Filter.neg_tags)).all()
+
+    # Start with default stage 0 for all available filters.
+    final_stages = {str(f.id): 0 for f in db_filters}
+
+    # If the request includes active stages, merge them with the defaults.
+    if active_stages_json and active_stages_json != 'null':
+        try:
+            user_provided_stages = json.loads(active_stages_json)
+            final_stages.update(user_provided_stages)
+        except json.JSONDecodeError:
+            print(f"Warning: Could not decode active_stages_json: {active_stages_json}")
+            # Proceed with just the defaults if JSON is invalid
+
+    # This will hold clauses for 'hide' filters.
+    hide_filter_clauses = []
+    # This will hold the final filter clauses for each 'show_only' filter
+    show_only_clauses = []
 
     for f in db_filters:
         if f.admin_only and not admin:
             continue
-        
-        # Explicitly ignore filters that are disabled via header_display = 0.
-        if f.header_display == 0:
-            continue
 
         # Determine the active stage for this filter
-        stage_index = active_stages.get(str(f.id)) # JSON keys are strings
+        stage_index = final_stages.get(str(f.id)) # JSON keys are strings
         stage_map = {0: f.main_stage, 1: f.second_stage, 2: f.third_stage}
-        active_stage = stage_map.get(stage_index)
 
-        if not active_stage or active_stage == 'disabled':
+        # A filter is only processed if its determined stage is not 'disabled'.
+        active_stage = stage_map.get(stage_index, 'disabled') # Default to 'disabled' if index is invalid
+        if active_stage == 'disabled':
             continue
 
         # --- Build the positive and negative criteria for this filter ---
@@ -471,8 +470,8 @@ def generate_image_search_filter(
             # An image is excluded if its own tags OR its folder's tags are in the list
             negative_criteria = or_(ImageContent.tags.any(Tag.id.in_(neg_tag_ids)), ImagePath.tags.any(Tag.id.in_(neg_tag_ids)))
 
-        # Combine all positive criteria with OR. An image matches if it meets ANY positive criterion.
-        positive_criteria = or_(*positive_criteria_parts) if positive_criteria_parts else expression.false()
+        # Combine all positive criteria with OR. If no positive criteria, default to true() so negative criteria can still be applied.
+        positive_criteria = or_(*positive_criteria_parts) if positive_criteria_parts else expression.true()
 
         # --- Apply logic based on the active stage ---
         # The core logic for a filter is "matches positive criteria AND does NOT match negative criteria"

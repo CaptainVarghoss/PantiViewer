@@ -100,7 +100,10 @@ def read_images(
     # Apply cursor-based pagination (Keyset Pagination)
     if last_id is not None and last_sort_value is not None:
         # Determine the column to sort by
-        sort_column = getattr(models.ImageContent, sort_by)
+        sort_model = models.ImageContent
+        if sort_by == 'filename':
+            sort_model = models.ImageLocation
+        sort_column = getattr(sort_model, sort_by)
 
         # Handle type conversion for last_sort_value based on sort_by column's type
         # Especially crucial for `date_created` which is a datetime object
