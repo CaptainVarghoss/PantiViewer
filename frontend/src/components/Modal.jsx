@@ -424,15 +424,15 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
                         <div className="section-container">
                             <h3 className="section-header">Metadata</h3>
                             <ul className="section-list modal-info-list">
-                                <li><strong className="modal-info-label">ID:</strong> {currentImage.id}</li>
-                                <li><strong className="modal-info-label">Path:</strong> {currentImage.path}</li>
-                                <li><strong className="modal-info-label">Filename:</strong> {currentImage.filename}</li>
-                                <li><strong className="modal-info-label">Checksum:</strong> {currentImage.content_hash}</li>
-                                <li><strong className="modal-info-label">Is Video:</strong> {currentImage.is_video ? 'Yes' : 'No'}</li>
-                                <li><strong className="modal-info-label">Date Created:</strong> {new Date(currentImage.date_created).toLocaleString()}</li>
-                                <li><strong className="modal-info-label">Date Modified:</strong> {new Date(currentImage.date_modified).toLocaleString()}</li>
-                                <li><strong className="modal-info-label">Width:</strong> {currentImage.width}</li>
-                                <li><strong className="modal-info-label">Height:</strong> {currentImage.height}</li>
+                                <li key="id"><strong className="modal-info-label">ID:</strong> {currentImage.id}</li>
+                                <li key="path"><strong className="modal-info-label">Path:</strong> {currentImage.path}</li>
+                                <li key="filename"><strong className="modal-info-label">Filename:</strong> {currentImage.filename}</li>
+                                <li key="checksum"><strong className="modal-info-label">Checksum:</strong> {currentImage.content_hash}</li>
+                                <li key="is_video"><strong className="modal-info-label">Is Video:</strong> {currentImage.is_video ? 'Yes' : 'No'}</li>
+                                <li key="date_created"><strong className="modal-info-label">Date Created:</strong> {new Date(currentImage.date_created).toLocaleString()}</li>
+                                <li key="date_modified"><strong className="modal-info-label">Date Modified:</strong> {new Date(currentImage.date_modified).toLocaleString()}</li>
+                                <li key="width"><strong className="modal-info-label">Width:</strong> {currentImage.width}</li>
+                                <li key="height"><strong className="modal-info-label">Height:</strong> {currentImage.height}</li>
                             </ul>
                             <ul className="section-list modal-info-list">{renderMetadata(currentImage.exif_data)}</ul>
                         </div>

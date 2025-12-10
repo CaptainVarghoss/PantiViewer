@@ -23,12 +23,16 @@ function Navbar({
   trashCount,
   setTrashCount,
   images,
+  openModal,
   onTrashBulkAction,
-  handleMoveSelected,
-  onSettingsClick
+  handleMoveSelected
 }) {
   const { token, isAuthenticated, user, logout, isAdmin, settings } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
+
+  const onSettingsClick = () => {
+    openModal('settings');
+  };
 
   const toggleNavOpen = () => {
     setNavOpen(!navOpen);

@@ -128,6 +128,7 @@ export function AppContent({
           setSelectedImages={setSelectedImages}
           trashCount={trashCount}
           setTrashCount={setTrashCount}
+          openModal={openModal}
         />
         <ConnectionStatus />
       </header>

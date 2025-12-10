@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ContextMenu from './ContextMenu';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useImageFeed, useImageActions } from '../hooks/useImageActions';
-import { useImages } from '../context/ImageContext'; // Keep for setImages access
+import { useImages } from '../context/ImageContext';
 
 /**
  * Component to display the image gallery with infinite scrolling using cursor-based pagination.
@@ -112,7 +112,7 @@ function ImageGrid({
         fetchMoreImages: hasMore ? fetchMoreImages : null,
         hasMore: hasMore,
         setImages: setImages,
-        onNavigate: setFocusedImageId, // Pass the focus setter to the modal
+        onNavigate: setFocusedImageId,
       });
     }
   }, [isSelectMode, openModal, images, setSelectedImages, focusedImageId, fetchImageById, setImages, setFocusedImageId, hasMore, fetchMoreImages]);

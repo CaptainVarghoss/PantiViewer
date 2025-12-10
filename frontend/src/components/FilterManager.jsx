@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import ConfirmationDialog from './ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
+import { useFilters } from '../context/FilterContext';
 import { MdDelete } from "react-icons/md";
 import IconPicker from './IconPicker'; // Import the new component
 import TagCluster from './TagCluster';
@@ -99,8 +100,9 @@ const FilterStageEditor = ({
     );
 };
 
-function FilterManager({filters, refetchFilters, isAdmin}) {
+function FilterManager({ isAdmin }) {
     const { token } = useAuth();
+    const { filters } = useFilters();
 
     // Define options for stage dropdowns based on new rules
     const baseStageOptions = ['show', 'hide', 'show_only'];
