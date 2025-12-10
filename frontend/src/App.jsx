@@ -16,8 +16,6 @@ function App() {
   const { isAuthenticated, loading, token } = useAuth();
   
   const [currentView, setCurrentView] = useState('grid');
-  const [folderViewSearchTerm, setFolderViewSearchTerm] = useState(null);
-  const [selectedFolderPath, setSelectedFolderPath] = useState(null); // State for the selected folder path
 
   // Effect to fetch trash count
 

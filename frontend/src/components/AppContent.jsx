@@ -15,10 +15,6 @@ import TrashView from './TrashView';
 export function AppContent({
   currentView,
   setCurrentView,
-  folderViewSearchTerm,
-  setFolderViewSearchTerm,
-  selectedFolderPath,
-  setSelectedFolderPath,
 }) {
   const { token, isAdmin } = useAuth();
 
@@ -89,16 +85,8 @@ export function AppContent({
     if (currentView !== view) {
       setIsSelectMode(false);
       setSelectedImages(new Set());
-      if (view === 'folders') {
-        setFolderViewSearchTerm(null);
-      }
     }
     setCurrentView(view);
-  };
-
-  const handleFolderSelect = (folderPath) => {
-    setSelectedFolderPath(folderPath);
-    setFolderViewSearchTerm(folderPath ? `Folder:"${folderPath}"` : null);
   };
 
   const handleWebSocketMessage = useCallback((message) => {
@@ -168,9 +156,7 @@ export function AppContent({
           <div className="folder-layout-container">
             <div className="folder-tree-panel">
               <FolderTree
-                onSelectFolder={handleFolderSelect}
                 webSocketMessage={webSocketMessage}
-                selectedFolderPath={selectedFolderPath}
                 setWebSocketMessage={setWebSocketMessage}
               />
             </div>

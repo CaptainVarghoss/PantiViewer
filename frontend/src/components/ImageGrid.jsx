@@ -11,7 +11,6 @@ import { useImages } from '../context/ImageContext'; // Keep for setImages acces
  * Fetches image data from the backend in pages and appends them.
  */
 function ImageGrid({
-  setSearchTerm,
   webSocketMessage,
   setWebSocketMessage,
   isSelectMode,
@@ -112,12 +111,11 @@ function ImageGrid({
         images: images,
         fetchMoreImages: hasMore ? fetchMoreImages : null,
         hasMore: hasMore,
-        setImages: setImages, // Pass setImages to the modal
-        setSearchTerm: setSearchTerm,
+        setImages: setImages,
         onNavigate: setFocusedImageId, // Pass the focus setter to the modal
       });
     }
-  }, [isSelectMode, openModal, images, setSearchTerm, setSelectedImages, focusedImageId, fetchImageById, setImages, setFocusedImageId, hasMore, fetchImages]);
+  }, [isSelectMode, openModal, images, setSelectedImages, focusedImageId, fetchImageById, setImages, setFocusedImageId, hasMore, fetchMoreImages]);
 
   // Handle right-click event on a thumbnail
   const handleContextMenu = (event, thumbnail) => {

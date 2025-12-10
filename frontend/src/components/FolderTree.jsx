@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSearch } from '../context/SearchContext';
 import { IoFolderOutline, IoFolderOpenOutline, IoChevronForward, IoChevronDown } from 'react-icons/io5';
 
 // Helper function to build a tree structure from flat paths
@@ -62,11 +63,13 @@ const buildFolderTree = (imagePaths) => {
     return { tree: rootNodes, parentPaths: allParentPaths };
 };
 
-const FolderTree = ({ onSelectFolder, selectedFolderPath, webSocketMessage, setWebSocketMessage }) => {
+const FolderTree = ({ webSocketMessage, setWebSocketMessage }) => {
     const { token } = useAuth();
+    const { setSearchTerm } = useSearch();
     const [folderTree, setFolderTree] = useState([]); // Initialize as an empty array
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedFolderPath, setSelectedFolderPath] = useState(null);
     const [expandedFolders, setExpandedFolders] = useState(new Set()); // Stores paths of expanded folders
 
     // Effect to handle WebSocket messages
@@ -125,12 +128,21 @@ const FolderTree = ({ onSelectFolder, selectedFolderPath, webSocketMessage, setW
         const isExpanded = expandedFolders.has(node.path);
         const hasChildren = node.children && node.children.length > 0;
         const isSelected = selectedFolderPath === node.path;
+        const isRoot = node.depth === 0;
+
+        const handleSelect = () => {
+            // Allow deselecting by clicking the same folder again
+            const newPath = isSelected ? null : node.path;
+            setSelectedFolderPath(newPath);
+            // Update the search term in the context
+            setSearchTerm(newPath ? `Folder:"${newPath}"` : null);
+        };
 
         return (
             <li key={node.path} className={`folder-tree-item ${isSelected ? 'active' : ''}`}>
                 <div
                     className="folder-tree-node"
-                    onClick={() => onSelectFolder(node.path)}
+                    onClick={handleSelect}
                     style={{ '--indent-level': node.depth }}
                 >
                     {hasChildren ? (
@@ -138,7 +150,7 @@ const FolderTree = ({ onSelectFolder, selectedFolderPath, webSocketMessage, setW
                             {isExpanded ? <IoChevronDown /> : <IoChevronForward />}
                         </span>
                     ) : (
-                        // Add a placeholder to maintain alignment for leaf nodes
+                        // Add a placeholder to maintain alignment for leaf nodes, but not for root items that are also leaves
                         <span className="folder-toggle-placeholder"></span>
                     )}
                     <span className="folder-icon">
