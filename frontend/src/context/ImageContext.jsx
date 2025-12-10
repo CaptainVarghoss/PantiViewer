@@ -23,8 +23,7 @@ export const ImageProvider = ({ children }) => {
   const imagesPerPage = parseInt(settings?.thumb_num) || 60;
 
   const fetchImages = useCallback(async (isInitialLoad = false) => {
-    // Don't fetch if not authenticated or if a fetch is already in progress for "load more"
-    if (!isAuthenticated || (!isInitialLoad && isFetchingMore)) return;
+    if (!isAuthenticated || !filters || filters.length === 0 || (!isInitialLoad && isFetchingMore)) return;
 
     if (isInitialLoad) {
       setImagesLoading(true);
