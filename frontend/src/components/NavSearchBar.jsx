@@ -23,7 +23,7 @@ function NavSearchBar() {
     const { token } = useAuth();
     const { searchTerm, setSearchTerm } = useSearch();
     const { filters } = useFilters();
-    const [inputValue, setInputValue] = useState(searchTerm);
+    const [inputValue, setInputValue] = useState(searchTerm || '');
     const debounceDelay = 300; // delay in ms
 
     const [suggestions, setSuggestions] = useState([]);
@@ -70,13 +70,13 @@ function NavSearchBar() {
 
     // Sync local state if the parent's searchTerm changes from outside
     useEffect(() => {
-        setInputValue(searchTerm);
+        setInputValue(searchTerm || '');
     }, [searchTerm]); 
 
     // Effect for autocomplete suggestions
     useEffect(() => {
         const handleAutocomplete = async () => {
-            const lastPart = inputValue.substring(inputValue.lastIndexOf(' ') + 1);
+            const lastPart = (inputValue || '').substring(inputValue.lastIndexOf(' ') + 1);
             const lowerLastPart = lastPart.toLowerCase();
 
             if (lowerLastPart === 'tag:') {
@@ -142,22 +142,14 @@ function NavSearchBar() {
     return (
         <div className="navbar-search-wrapper" ref={searchWrapperRef} style={{ position: 'relative' }}>
             <input
-                type="text"
+                type="search"
+                name="search"
                 placeholder="Search images..."
                 className="form-input-base"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 autoComplete="off"
             />
-            {inputValue && (
-                <button
-                    className="clear-search-button"
-                    onClick={handleClear}
-                    aria-label="Clear search"
-                >
-                    <IoMdCloseCircle size={20} />
-                </button>
-            )}
 
             {activeSuggestionType === 'TAG' && (
                 <div className="autocomplete-popup">
