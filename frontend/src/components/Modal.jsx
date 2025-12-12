@@ -349,7 +349,7 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
                 <>
                     {Object.entries(metaObject).map(([key, value]) => {
                         if (key === 'parameters' && typeof value === 'string') {
-                            return renderAiParameters(value);
+                            return <React.Fragment key="ai-parameters">{renderAiParameters(value)}</React.Fragment>;
                         }
                         return <li key={key}><strong className="modal-info-label">{key.replace(/_/g, ' ')}:</strong> {typeof value === 'object' ? JSON.stringify(value) : String(value)}</li>;
                     })}
