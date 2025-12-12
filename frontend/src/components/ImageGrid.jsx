@@ -339,27 +339,19 @@ function ImageGrid({
   // Ref for the element to observe for infinite scrolling
   const observer = useRef();
   const lastImageElementRef = useCallback(node => {
-    // If we are currently loading, or there are no more images, do nothing.
-    if (imagesLoading || isFetchingMore) return;
-
     // Disconnect any existing observer before creating a new one.
     if (observer.current) observer.current.disconnect();
-
-    // If there are no more images to load, we don't need an observer.
-    if (!hasMore) {
-      return;
-    }
 
     // Create a new IntersectionObserver instance
     observer.current = new IntersectionObserver(entries => {
       // If the observed element is intersecting, trigger the next fetch.
       // The guards inside the callback prevent re-fetching.
-      if (entries[0].isIntersecting) {
+      if (entries[0].isIntersecting && hasMore && !isFetchingMore && !imagesLoading) {
         fetchMoreImages();
       }
     }, {
       root: null, // Use the viewport as the root element
-      rootMargin: '100px', // When the target element is 100px from the bottom of the viewport, trigger the callback
+      rootMargin: '200px', // When the target element is 200px from the bottom of the viewport, trigger the callback
       threshold: 0.1 // Trigger when 10% of the target element is visible
     }); 
 
@@ -367,7 +359,7 @@ function ImageGrid({
     if (node) {
       observer.current.observe(node);
     }
-  }, [imagesLoading, isFetchingMore, hasMore, fetchMoreImages]); // The dependency array is now minimal and correct.
+  }, [hasMore, isFetchingMore, imagesLoading, fetchMoreImages]); // The dependency array is now minimal and correct.
 
   return (
     <>
@@ -389,12 +381,12 @@ function ImageGrid({
               initial="hidden"
               animate="visible"
               exit="hidden"              
+              ref={images.length === index + 1 && hasMore ? lastImageElementRef : null}
               className={`btn-base btn-primary image-card ${selectedImages.has(image.id) ? 'selected' : ''} ${focusedImageId === image.id ? 'focused' : ''}`}
               onClick={(e) => handleImageClick(e, image)}
               style={{ transition: 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
             >
               <ImageCard
-                ref={images.length === index + 1 && hasMore ? lastImageElementRef : null}
                 image={image}
                 onContextMenu={(e) => handleContextMenu(e, image)}
                 refreshKey={image.refreshKey} />
