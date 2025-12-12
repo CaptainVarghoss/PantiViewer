@@ -32,37 +32,33 @@ const ImageCard = forwardRef(({ image, onClick, onContextMenu, isSelected, isFoc
   );
 
   return (
-    <div
-      ref={ref}
-      key={image.id}
-      className={`btn-base btn-primary image-card ${isSelected ? 'selected' : ''} ${isFocused ? 'focused' : ''}`}
-      onClick={(e) => onClick(e, image)}
-      data-image-id={image.id}
-      style={{ transition: 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
+    <motion.div
+      className="image-card-inner"
+      style={{ perspective: '1000px' }}
+      whileHover={{ scale: 1.1 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 50 }}
     >
-      <div className="image-card-inner" style={{ perspective: '1000px' }}>
-        <AnimatePresence initial={false}>
-          {image.thumbnail_missing ? (
-            <Spinner />
-          ) : (
-            <motion.img
-              key="thumbnail"
-              src={thumbnailUrl}
-              alt={image.filename}
-              loading='lazy'
-              className="thumbnail"
-              onContextMenu={(e) => {
-                onContextMenu(e, image);
-              }}
-              variants={flipVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            />
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
+      <AnimatePresence initial={false}>
+        {image.thumbnail_missing ? (
+          <Spinner />
+        ) : (
+          <motion.img
+            key="thumbnail"
+            src={thumbnailUrl}
+            alt={image.filename}
+            loading='lazy'
+            className="thumbnail"
+            onContextMenu={(e) => {
+              onContextMenu(e, image);
+            }}
+            variants={flipVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 });
 

@@ -841,7 +841,8 @@ form .section-list .section-item .section-fields:nth-child(3) {
 
 .image-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    /*grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));*/
+    grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
     gap: 0.5rem;
     align-items: start;
 }
@@ -852,11 +853,9 @@ form .section-list .section-item .section-fields:nth-child(3) {
 }
 
 .image-card {
-    display: block;
+    height: auto;
     overflow: hidden;
     padding: 0rem;
-    max-width: 200px;
-    height: auto;
     border-radius: 0.5rem;
 }
 
@@ -873,13 +872,13 @@ form .section-list .section-item .section-fields:nth-child(3) {
 
 .image-card img {
   width: 100%;
+  height: 100%;
+  object-fit: cover;
   transition: all 0.5s ease;
 }
 
 .image-card-inner {
   display: flex;
-  min-width: 200px;
-  min-height: 200px;
 }
 
 /* In select mode, all images are dimmed by default */
@@ -899,8 +898,7 @@ form .section-list .section-item .section-fields:nth-child(3) {
   filter: brightness(1.0);
 }
 
-.thumbnail-spinner,
-.thumbnail {
+.thumbnail-spinner {
   /* Make both the spinner and the image fill the container */
   position: absolute;
   top: 0;

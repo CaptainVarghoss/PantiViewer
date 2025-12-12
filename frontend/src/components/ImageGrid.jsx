@@ -384,15 +384,15 @@ function ImageGrid({
               variants={imageCardVariants}
               initial="hidden"
               animate="visible"
-              exit="hidden"
+              exit="hidden"              
+              className={`btn-base btn-primary image-card ${selectedImages.has(image.id) ? 'selected' : ''} ${focusedImageId === image.id ? 'focused' : ''}`}
+              onClick={(e) => handleImageClick(e, image)}
+              style={{ transition: 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
             >
               <ImageCard
                 ref={images.length === index + 1 && hasMore ? lastImageElementRef : null}
                 image={image}
-                onClick={(e, img) => handleImageClick(e, img)}
-                isSelected={selectedImages.has(image.id)}
                 onContextMenu={(e) => handleContextMenu(e, image)}
-                isFocused={focusedImageId === image.id}
                 refreshKey={image.refreshKey} />
             </motion.div>
           ))}
