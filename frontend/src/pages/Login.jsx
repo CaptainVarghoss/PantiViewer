@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 /**
  * Login component for user authentication.
@@ -11,15 +10,6 @@ function Login({ onSwitchToSignup }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-
-  // Effect to redirect if already authenticated
-  useEffect(() => {
-    // This component should not be mounted if authenticated, but as a safeguard:
-    if (isAuthenticated && navigate) {
-      navigate('/'); // Redirect to home page if already logged in
-    }
-  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

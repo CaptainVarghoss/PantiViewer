@@ -67,8 +67,9 @@ def read_images(
     search_query: Optional[str] = Query(None, description="Search term for filename or path"),
     sort_by: str = Query("date_created", description="Column to sort by (e.g., filename, date_created, checksum)"),
     sort_order: str = Query("desc", description="Sort order: 'asc' or 'desc'"),
-    last_id: Optional[int] = Query(None, description="ID of the last item from the previous page for cursor-based pagination"),
     last_sort_value: Optional[str] = Query(None, description="Value of the sort_by column for the last_id item (for stable pagination)"),
+    last_content_id: Optional[int] = Query(None, description="Content ID of the last item for pagination tie-breaking."),
+    last_location_id: Optional[int] = Query(None, description="Location ID of the last item for pagination tie-breaking."),
     db: Session = Depends(database.get_db),
     active_stages_json: Optional[str] = Query(None, description="JSON string of active filter stages, e.g., '{\"1\":0, \"2\":1}'"),
     trash_only: bool = Query(False, description="If true, only returns images marked as deleted."),
@@ -98,54 +99,41 @@ def read_images(
         query = query.filter(search_filter)
 
     # Apply cursor-based pagination (Keyset Pagination)
-    if last_id is not None and last_sort_value is not None:
-        # Determine the column to sort by
-        sort_model = models.ImageContent
-        if sort_by == 'filename':
-            sort_model = models.ImageLocation
-        sort_column = getattr(sort_model, sort_by)
-
-        # Handle type conversion for last_sort_value based on sort_by column's type
-        # Especially crucial for `date_created` which is a datetime object
+    if last_sort_value is not None and last_content_id is not None and last_location_id is not None:
         converted_last_sort_value = last_sort_value
         if sort_by == 'date_created':
             try:
-                # Convert ISO string back to datetime for comparison
                 converted_last_sort_value = datetime.fromisoformat(last_sort_value.replace('Z', '+00:00'))
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid date format for last_sort_value.")
-        elif sort_by in ['content_hash', 'filename']:
-            # These are strings, no special conversion needed
-            pass # Keep as string
+
+        sort_column = getattr(models.ImageContent if sort_by != 'filename' else models.ImageLocation, sort_by)
+
+        # Using tuple comparison for more efficient keyset pagination.
+        # This creates a 3-part cursor: (sort_column, content_id, location_id)
+        cursor_tuple = (
+            sort_column,
+            models.ImageContent.content_id,
+            models.ImageLocation.id
+        )
+        last_values_tuple = (
+            converted_last_sort_value,
+            last_content_id,
+            last_location_id
+        )
 
         if sort_order == 'desc':
-            # For descending, we want items where sort_column < last_sort_value
-            # OR (sort_column = last_sort_value AND id < last_id)
-            query = query.filter(
-                or_(
-                    sort_column < converted_last_sort_value,
-                    and_(sort_column == converted_last_sort_value, models.ImageLocation.id < last_id)
-                )
-            )
-        else: # sort_order == 'asc'
-            # For ascending, we want items where sort_column > last_sort_value
-            # OR (sort_column = last_sort_value AND id > last_id)
-            query = query.filter(
-                or_(
-                    sort_column > converted_last_sort_value,
-                    and_(sort_column == converted_last_sort_value, models.ImageLocation.id > last_id)
-                )
-            )
+            query = query.filter(cursor_tuple < last_values_tuple)
+        else:  # 'asc'
+            query = query.filter(cursor_tuple > last_values_tuple)
 
     # Apply sorting
-    sort_model = models.ImageContent
-    if sort_by == 'filename':
-        sort_model = models.ImageLocation
-    
+    sort_column = getattr(models.ImageContent if sort_by != 'filename' else models.ImageLocation, sort_by)
+
     if sort_order == 'desc':
-        query = query.order_by(getattr(sort_model, sort_by).desc(), models.ImageLocation.id.desc())
-    else: # 'asc'
-        query = query.order_by(getattr(sort_model, sort_by).asc(), models.ImageLocation.id.asc())
+        query = query.order_by(sort_column.desc(), models.ImageContent.content_id.desc(), models.ImageLocation.id.desc())
+    else:  # 'asc'
+        query = query.order_by(sort_column.asc(), models.ImageContent.content_id.asc(), models.ImageLocation.id.asc())
 
     # Apply limit
     images = query.limit(limit).all()
@@ -213,12 +201,12 @@ def read_image(
         thumbnail_url = f"/static_assets/generated_media/thumbnails/{db_image.content_hash}_thumb.webp"
         thumbnail_missing = False
     else:
-        print(f"Thumbnail for {location_image.filename} (ID: {location_image.id}) not found. Triggering background generation.")
-        thumbnail_url = "/placeholder.png"
+        # The URL should still point to the expected final location for the frontend.
+        thumbnail_url = f"/static_assets/generated_media/thumbnails/{db_image.content_hash}_thumb.webp"
         thumbnail_missing = True
         original_filepath = os.path.join(location_image.path, location_image.filename)
         if original_filepath and Path(original_filepath).is_file():
-            # Note: The original code was missing the loop argument here, which is now included.
+            print(f"Thumbnail for {location_image.filename} (ID: {location_image.id}) not found. Triggering background generation.")
             thread = threading.Thread(
                 target=image_processor.generate_thumbnail_in_background,
                 args=(location_image.id, db_image.content_hash, original_filepath, database.main_event_loop)
@@ -242,7 +230,7 @@ def read_image(
     )
 
 
-@router.put("/images/{image_id}/tags", response_model=schemas.ImageContent)
+@router.put("/images/{image_id}/tags", response_model=schemas.ImageResponse)
 def update_image(image_id: int, image_update: schemas.ImageTagUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     # Updates an existing image's tags.
     # Requires authentication.

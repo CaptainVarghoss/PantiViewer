@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { useSearch } from './SearchContext';
 import { useFilters } from './FilterContext';
@@ -10,8 +10,11 @@ export const ImageProvider = ({ children }) => {
   const [images, setImages] = useState([]);
   const [imagesLoading, setImagesLoading] = useState(false);
   const [imagesError, setImagesError] = useState(null);
-  const [lastId, setLastId] = useState(null);
-  const [lastSortValue, setLastSortValue] = useState(null);
+  // Use refs for cursors to prevent stale closures and dependency loops.
+  const lastSortValueRef = useRef(null);
+  const lastContentIdRef = useRef(null);
+  const lastLocationIdRef = useRef(null);
+
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [trash_only, setTrashOnly] = useState(false);
@@ -23,7 +26,10 @@ export const ImageProvider = ({ children }) => {
   const imagesPerPage = parseInt(settings?.thumb_num) || 60;
 
   const fetchImages = useCallback(async (isInitialLoad = false) => {
-    if (!isAuthenticated || !filters || filters.length === 0 || (!isInitialLoad && isFetchingMore)) return;
+    // The isFetchingMore check is now inside the non-initial load block
+    if (!isAuthenticated || !filters || filters.length === 0) return;
+
+    if (!isInitialLoad && isFetchingMore) return;
 
     if (isInitialLoad) {
       setImagesLoading(true);
@@ -44,8 +50,9 @@ export const ImageProvider = ({ children }) => {
 
       if (searchTerm) queryString.append('search_query', searchTerm);
       // For "load more", include pagination cursors.
-      if (!isInitialLoad && lastId) queryString.append('last_id', lastId);
-      if (!isInitialLoad && lastSortValue) queryString.append('last_sort_value', lastSortValue);
+      if (!isInitialLoad && lastSortValueRef.current) queryString.append('last_sort_value', lastSortValueRef.current);
+      if (!isInitialLoad && lastContentIdRef.current) queryString.append('last_content_id', lastContentIdRef.current);
+      if (!isInitialLoad && lastLocationIdRef.current) queryString.append('last_location_id', lastLocationIdRef.current);
       if (trash_only) queryString.append('trash_only', 'true');
 
       if (filters) {
@@ -61,7 +68,6 @@ export const ImageProvider = ({ children }) => {
       if (isInitialLoad) {
         setImages(data);
       } else {
-        // Append new images, ensuring no duplicates are added
         setImages(prevImages => {
           const existingIds = new Set(prevImages.map(img => img.id));
           const uniqueNewImages = data.filter(img => !existingIds.has(img.id));
@@ -71,10 +77,14 @@ export const ImageProvider = ({ children }) => {
 
       if (data.length > 0) {
         const newLastImage = data[data.length - 1];
-        setLastId(newLastImage.id);
+        lastLocationIdRef.current = newLastImage.id;
+        lastContentIdRef.current = newLastImage.content_id;
         let valForSort = newLastImage[sortBy];
-        if (sortBy === 'date_created') valForSort = new Date(valForSort).toISOString();
-        setLastSortValue(valForSort);
+        if (sortBy === 'date_created' && valForSort) {
+          const date = new Date(valForSort.replace(' ', 'T'));
+          if (!isNaN(date.getTime())) valForSort = date.toISOString();
+        }
+        lastSortValueRef.current = valForSort;
       }
 
       setHasMore(data.length === limit);
@@ -86,27 +96,28 @@ export const ImageProvider = ({ children }) => {
       setImagesLoading(false);
       setIsFetchingMore(false);
     }
-  }, [token, isAuthenticated, imagesPerPage, sortBy, sortOrder, searchTerm, filters, trash_only, lastId, lastSortValue, isFetchingMore, images.length]);
+  }, [token, isAuthenticated, imagesPerPage, sortBy, sortOrder, searchTerm, filters, trash_only, isFetchingMore]);
 
   // This effect triggers a new search when primary search criteria change.
   useEffect(() => {
     if (isAuthenticated && imagesPerPage > 0) {
-      // Reset pagination and trigger a new fetch
-      setLastId(null);
-      setLastSortValue(null);
+      // Reset cursors and trigger a new fetch.
+      lastSortValueRef.current = null;
+      lastContentIdRef.current = null;
+      lastLocationIdRef.current = null;
       setHasMore(true);
-      fetchImages(true); // `true` signifies a new search
+      fetchImages(true);
     } else if (!isAuthenticated) {
-      // Clear all data on logout
       setImages([]);
       setImagesLoading(false);
       setIsFetchingMore(false);
       setHasMore(false);
-      setLastId(null);
-      setLastSortValue(null);
       setImagesError(null);
+      lastSortValueRef.current = null;
+      lastContentIdRef.current = null;
+      lastLocationIdRef.current = null;
     }
-  }, [isAuthenticated, imagesPerPage, searchTerm, sortBy, sortOrder, filters, trash_only]); // `fetchImages` is not a dependency here to prevent loops
+  }, [isAuthenticated, imagesPerPage, searchTerm, sortBy, sortOrder, filters, trash_only]);
 
   const contextValue = {
     images,
@@ -115,17 +126,13 @@ export const ImageProvider = ({ children }) => {
     setImagesLoading,
     imagesError,
     setImagesError,
-    lastId,
-    setLastId,
-    lastSortValue,
-    setLastSortValue,
     hasMore,
     setHasMore,
     isFetchingMore,
     setIsFetchingMore,
     trash_only,
     setTrashOnly,
-    fetchImages // Expose fetchImages for "load more"
+    fetchImages
   };
 
   return (

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table, Text, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
@@ -10,7 +10,7 @@ Base = declarative_base()
 image_tags = Table(
     'image_tags',
     Base.metadata,
-    Column('image_id', String, ForeignKey('image_content.content_hash'), primary_key=True),
+    Column('image_id', Integer, ForeignKey('image_content.content_id'), primary_key=True),
     Column('tag_id', Integer, ForeignKey('tags.id'), primary_key=True)
 )
 
@@ -78,7 +78,8 @@ class ImagePath(Base):
 
 class ImageContent(Base):
     __tablename__ = "image_content"
-    content_hash = Column(String, primary_key=True, unique=True, index=True, nullable=False)
+    content_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    content_hash = Column(String, unique=True, index=True, nullable=False)
     is_video = Column(Boolean, default=False)
     exif_data = Column(Text)
     width = Column(Integer)
@@ -90,6 +91,10 @@ class ImageContent(Base):
     locations = relationship("ImageLocation", back_populates="content")
     tags = relationship("Tag", secondary=image_tags, back_populates="images")
 
+    __table_args__ = (
+        Index("idx_ic_keyset_sort", "date_created", "content_id"),
+    )
+
 class ImageLocation(Base):
     __tablename__ = "image_location"
     id = Column(Integer, primary_key=True, index=True)
@@ -100,6 +105,7 @@ class ImageLocation(Base):
     deleted = Column(Boolean, default=False)
     content = relationship("ImageContent", back_populates="locations")
     __table_args__ = (
+        Index("idx_il_join_tiebreak", "content_hash", "id"),
         UniqueConstraint('path', 'filename', name='uq_path_filename'),
     )
 

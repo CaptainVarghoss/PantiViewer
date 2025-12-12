@@ -274,7 +274,7 @@ def scan_paths(db: Session):
         db.commit() # Commit any changes from the tag consistency check
 
         # Fetch all existing paths and checksums once at the start.
-        paths_to_scan = db.query(models.ImagePath).filter(models.ImagePath.is_ignored == False).all()
+        paths_to_scan = db.query(models.ImagePath).all()
         existing_image_paths = {p.path for p in paths_to_scan}
         existing_image_checksums = {row[0] for row in db.query(models.ImageContent.content_hash).all()}
 
@@ -282,6 +282,9 @@ def scan_paths(db: Session):
             current_path = image_path_entry.path
             if not os.path.isdir(current_path):
                 print(f"Warning: Configured path '{current_path}' does not exist or is not a directory. Skipping.")
+                continue
+            if image_path_entry.is_ignored == True:
+                print(f'Directory ignored, skipping: {current_path}')
                 continue
             
             print(f"Scanning directory: {current_path}")

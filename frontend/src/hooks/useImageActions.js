@@ -31,7 +31,7 @@ export const useImageFeed = () => {
   // Action for infinite scrolling
   const fetchMoreImages = useCallback(() => {
     if (hasMore && !isFetchingMore) {
-      fetchImages(false); // `false` indicates we are appending, not doing a new search
+      fetchImages(false);
     }
   }, [hasMore, isFetchingMore, fetchImages]);
 

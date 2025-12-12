@@ -111,9 +111,7 @@ class ImageLocationSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class ImageContent(ImageBase):
-    id: Optional[int] = None
-    filename: Optional[str] = None
-    path: Optional[str] = None
+    content_id: int
     width: Optional[int] = None
     height: Optional[int] = None
     tags: List[Tag] = []
@@ -121,11 +119,29 @@ class ImageContent(ImageBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-class ImageResponse(ImageContent):
+class ImageResponse(BaseModel):
+    # Fields from ImageLocation
+    id: int
+    filename: str
+    path: str
+
+    # Fields from ImageContent / ImageBase
+    content_id: int
+    content_hash: str
+    date_created: datetime
+    date_modified: datetime
+    exif_data: Dict[str, Any] = {}
+    is_video: bool = False
+    width: Optional[int] = None
+    height: Optional[int] = None
+    tags: List[Tag] = []
+    locations: List[ImageLocationSchema] = []
+
+    # Fields added in the route
     thumbnail_url: Optional[str] = None
     thumbnail_missing: Optional[bool] = False
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, extra='ignore')
 
 # --- Setting Schemas ---
 class SettingBase(BaseModel):

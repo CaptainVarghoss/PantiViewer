@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 /**
  * Signup component for user registration.
@@ -11,8 +10,7 @@ function Signup({ onSwitchToLogin }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const navigate = useNavigate(); // Initialize navigate
-
+ 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
