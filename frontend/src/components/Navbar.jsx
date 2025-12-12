@@ -5,6 +5,8 @@ import NavbarMenuButtons from './NavbarMenuButtons';
 import NavSearchBar from './NavSearchBar';
 import NavMenuBar from './NavMenu';
 import SelectionToolbar from './SelectionToolbar';
+import { useImages } from '../context/ImageContext';
+
 
 /**
  * Navigation bar component for the application.
@@ -22,13 +24,14 @@ function Navbar({
   setSelectedImages,
   trashCount,
   setTrashCount,
-  images,
   openModal,
   onTrashBulkAction,
   handleMoveSelected
 }) {
   const { token, isAuthenticated, user, logout, isAdmin, settings } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
+  const { images } = useImages();
+
 
   const onSettingsClick = () => {
     openModal('settings');
@@ -113,6 +116,8 @@ function Navbar({
             trashCount={trashCount}
             setCurrentView={setCurrentView}
             onSettingsClick={onSettingsClick}
+            isSelectMode={isSelectMode}
+            setIsSelectMode={setIsSelectMode}
           />
         )}
         {isAuthenticated && (

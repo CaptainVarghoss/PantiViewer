@@ -254,15 +254,19 @@ function ImageGrid({
   // Effect to handle cleanup after bulk tag editing causes images to be filtered out.
   // If select mode is on, but the selection becomes empty, it's likely due to a bulk action
   // filtering the items out of view. In this case, we should exit select mode.
+  const initialMount = useRef(true);
   useEffect(() => {
-    // Only run this logic if select mode is currently active.
-    if (isSelectMode) {
-      // If there are no more selected images, exit select mode.
-      if (selectedImages.size === 0) {
-        setIsSelectMode(false);
-      }
+    // On initial mount, don't run this effect.
+    if (initialMount.current) {
+      initialMount.current = false;
+      return;
     }
-  }, [selectedImages, isSelectMode, setIsSelectMode]);
+
+    // Only run this logic if select mode is currently active.
+    if (isSelectMode && selectedImages.size === 0) {
+      setIsSelectMode(false);
+    }
+  }, [selectedImages]); // Only depends on selectedImages
 
   // Effect to scroll the focused image into view, especially for modal navigation
   useEffect(() => {
