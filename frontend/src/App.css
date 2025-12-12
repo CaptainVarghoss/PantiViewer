@@ -855,6 +855,7 @@ form .section-list .section-item .section-fields:nth-child(3) {
 .image-card {
     height: auto;
     overflow: hidden;
+    aspect-ratio: 1/1;
     padding: 0rem;
     border-radius: 0.5rem;
 }
@@ -879,6 +880,8 @@ form .section-list .section-item .section-fields:nth-child(3) {
 
 .image-card-inner {
   display: flex;
+  height: 100%;
+  width: 100%;
 }
 
 /* In select mode, all images are dimmed by default */
