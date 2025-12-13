@@ -499,7 +499,7 @@ def get_trash_info(
     Returns the number of items currently in the trash.
     """
     count = db.query(func.count(models.ImageLocation.id)).filter(models.ImageLocation.deleted == True).scalar()
-    return {"item_count": count}
+    return {"trash_count": count}
 
 @router.post("/trash/empty", status_code=status.HTTP_204_NO_CONTENT)
 def empty_trash(

@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import TagCluster from './TagCluster';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useHotkeyContext } from '../context/HotkeyContext';
-import { useImageFeed } from '../hooks/useImageActions';
 import Settings from './Settings'; // Import the new unified Settings component
 
 /**
@@ -27,7 +26,7 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
     const imageSectionRef = useRef(null); // Ref for the image section
 
     // --- Image Modal State & Navigation Logic ---
-    const { images, hasMore, fetchMoreImages } = useImageFeed();
+    const { images, hasMore, fetchMoreImages, onNavigate } = modalProps;
     const [currentImage, setCurrentImage] = useState(modalProps.currentImage);
     const [navigationDirection, setNavigationDirection] = useState(0);
     const currentIndex = (modalType === 'image' && currentImage && images) ? images.findIndex(img => img.id === currentImage.id) : -1;
@@ -201,18 +200,18 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
         if (newIndex >= 0 && newIndex < images.length) {
             const newImage = images[newIndex];
             setCurrentImage(newImage);
-            // If an onNavigate callback is provided, call it with the new image's ID.
-            modalProps.onNavigate?.(newImage.id);
+            // Call the onNavigate callback from props to update the focused image in the grid.
+            onNavigate?.(newImage.id);
         } else if (direction > 0 && newIndex >= images.length && hasMore && fetchMoreImages) {
             await fetchMoreImages();
             // The `images` array from the hook will update, and we can try to navigate again.
             if (images[newIndex]) {
                 const newImage = images[newIndex];
                 setCurrentImage(newImage);
-                modalProps.onNavigate?.(newImage.id);
+                onNavigate?.(newImage.id);
             }
         }
-    }, [currentIndex, images, hasMore, fetchMoreImages, modalProps.onNavigate]);
+    }, [currentIndex, images, hasMore, fetchMoreImages, onNavigate]);
 
 
     const handleNext = useCallback(() => navigateImage(1), [navigateImage]); // direction: 1 for next

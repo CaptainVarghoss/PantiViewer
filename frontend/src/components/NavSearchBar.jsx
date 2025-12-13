@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback} from 'react';
 import { IoMdCloseCircle } from "react-icons/io";
+import { useQueryClient } from '@tanstack/react-query';
 import TagCluster from './TagCluster';
 import { useAuth } from '../context/AuthContext';
 import { useSearch } from '../context/SearchContext';
 import ContextMenu from './ContextMenu';
-import { useImages } from '../context/ImageContext';
 import { useFilters } from '../context/FilterContext';
 
 
@@ -21,6 +21,7 @@ import { useFilters } from '../context/FilterContext';
  */
 function NavSearchBar() {
     const { token } = useAuth();
+    const queryClient = useQueryClient();
     const { searchTerm, setSearchTerm } = useSearch();
     const { filters } = useFilters();
     const [inputValue, setInputValue] = useState(searchTerm || '');
@@ -86,12 +87,16 @@ function NavSearchBar() {
                 const searchInput = searchWrapperRef.current.querySelector('input');
                 const rect = searchInput.getBoundingClientRect();
                 setActiveSuggestionType('FOLDER');
-                try {
-                    const response = await fetch('/api/folders/', {
+                queryClient.fetchQuery({
+                    queryKey: ['folders'],
+                    queryFn: async () => {
+                        const response = await fetch('/api/folders/', {
                         headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
+                        });
+                        if (!response.ok) throw new Error('Failed to fetch folders');
+                        return response.json();
+                    }
+                }).then(data => {
                         const menuItems = data.folders.map(f => ({
                             label: f.short_name || f.path,
                             action: 'select_folder',
@@ -99,17 +104,16 @@ function NavSearchBar() {
                         }));
                         setContextMenu({ isVisible: true, x: rect.left, y: rect.bottom, items: menuItems });
                         setSuggestions([]);
-                    }
-                } catch (error) {
+                }).catch(error => {
                     console.error("Failed to fetch folders for autocomplete", error);
-                }
+                });
             } else {
                 resetSuggestions();
             }
         };
 
         handleAutocomplete();
-    }, [inputValue, token, resetSuggestions]);
+    }, [inputValue, token, resetSuggestions, queryClient]);
     
     const handleFolderSelect = (folderPath) => {
         const baseInput = inputValue.substring(0, inputValue.lastIndexOf(' ') + 1);

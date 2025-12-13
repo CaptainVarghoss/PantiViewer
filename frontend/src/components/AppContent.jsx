@@ -19,7 +19,7 @@ export function AppContent({
   const { token, isAdmin } = useAuth();
 
   const [webSocketMessage, setWebSocketMessage] = useState([]);
-  const [trashCount, setTrashCount] = useState(0);
+  const [gridImages, setGridImages] = useState([]); // State to hold images for Navbar
   const [selectedImages, setSelectedImages] = useState(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
 
@@ -91,9 +91,6 @@ export function AppContent({
 
   const handleWebSocketMessage = useCallback((message) => {
     console.log("File change detected:", message);
-    // Use the functional update form to prevent race conditions.
-    // This ensures that we're always appending to the most recent state,
-    // even if multiple messages arrive before a re-render.
     setWebSocketMessage(prevMessages => [...prevMessages, message]);
   }, []);
 
@@ -113,8 +110,6 @@ export function AppContent({
     <div id="connection" style={{ borderColor: isConnected ? 'var(--accent-green)' : 'var(--accent-red)', backgroundColor: isConnected ? 'var(--accent-green)' : 'var(--accent-red)' }}></div>
   );
 
-  // ... (handleMoveSelected, handleMoveSingleImage, handleTrashBulkAction would also move here)
-
   return (
     <>
       <header>
@@ -126,9 +121,8 @@ export function AppContent({
           setCurrentView={handleSetCurrentView}
           selectedImages={selectedImages}
           setSelectedImages={setSelectedImages}
-          trashCount={trashCount}
-          setTrashCount={setTrashCount}
           openModal={openModal}
+          images={gridImages}
         />
         <ConnectionStatus />
       </header>
@@ -142,13 +136,13 @@ export function AppContent({
             selectedImages={selectedImages}
             setSelectedImages={setSelectedImages}
             openModal={openModal}
+            onImagesChange={setGridImages}
           />
         )}
         {currentView === 'trash' && (
           <TrashView
             webSocketMessage={webSocketMessage}
             setWebSocketMessage={setWebSocketMessage}
-            setTrashCount={setTrashCount}
             setCurrentView={handleSetCurrentView}
             isSelectMode={isSelectMode}
             setIsSelectMode={setIsSelectMode}
@@ -173,6 +167,7 @@ export function AppContent({
                 selectedImages={selectedImages}
                 setSelectedImages={setSelectedImages}
                 openModal={openModal}
+                onImagesChange={setGridImages}
               />
             </div>
           </div>

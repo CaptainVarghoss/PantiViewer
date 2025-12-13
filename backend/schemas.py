@@ -246,7 +246,7 @@ class FolderList(BaseModel):
 
 # --- Trash Schema ---
 class TrashInfo(BaseModel):
-    item_count: int
+    trash_count: int
 
 class ReprocessRequest(BaseModel):
     scope: str = Field(..., description="The scope of reprocessing. Must be one of 'file', 'directory', or 'all'.")

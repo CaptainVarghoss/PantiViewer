@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ImageCard from '../components/ImageCard';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import ContextMenu from './ContextMenu';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
-import { useImageFeed, useImageActions } from '../hooks/useImageActions';
-import { useImages } from '../context/ImageContext';
+import { useImageActions } from '../hooks/useImageActions';
+import { fetchImagesApi, fetchImageByIdApi } from '../api/imageService';
+import { useAuth } from '../context/AuthContext';
+import { useSearch } from '../context/SearchContext';
+import { useFilters } from '../context/FilterContext';
 
 /**
  * Component to display the image gallery with infinite scrolling using cursor-based pagination.
@@ -20,17 +24,74 @@ function ImageGrid({
   trash_only = false,
   contextMenuItems,
   openModal,
+  onImagesChange, // New prop to report images back to parent
 }) {
+  const { token } = useAuth();
+  const { searchQuery } = useSearch();
+  const { filters } = useFilters();
+  const queryClient = useQueryClient();
+
+  // Compute activeStages from the filters context.
+  // Only include filters that are in a non-default state (index > 0).
+  const activeStages = filters.reduce((acc, filter) => {
+    if (filter.activeStageIndex > 0) {
+      acc[filter.id] = filter.activeStageIndex;
+    }
+    return acc;
+  }, {});
+
+  const queryKey = ['images', { trash_only, searchQuery, activeStages: JSON.stringify(activeStages) }];
+
   const {
-    images,
-    imagesLoading,
-    imagesError,
-    isFetchingMore,
-    hasMore,
-    fetchMoreImages,
-    fetchImageById,
-  } = useImageFeed();
-  const { setImages, fetchImages } = useImages();
+    data,
+    error: imagesError,
+    fetchNextPage: fetchMoreImages,
+    hasNextPage: hasMore,
+    isLoading: imagesLoading,
+    isFetchingNextPage: isFetchingMore,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: queryKey,
+    queryFn: async ({ pageParam }) => {
+      const params = { limit: 50 };
+
+      if (trash_only) {
+        params.trash_only = true;
+      }
+
+      const queryString = new URLSearchParams(params);
+
+      if (searchQuery) queryString.set('search_query', searchQuery);
+      // Only send the filter parameter if there are active non-default filters.
+      if (Object.keys(activeStages).length > 0) {
+        queryString.set('active_stages_json', JSON.stringify(activeStages));
+      }
+      if (pageParam) {
+        queryString.set('last_sort_value', pageParam.last_sort_value);
+        queryString.set('last_content_id', pageParam.last_content_id);
+        queryString.set('last_location_id', pageParam.last_location_id);
+      }
+      return fetchImagesApi(token, queryString);
+    },
+    getNextPageParam: (lastPage) => {
+      if (!lastPage || lastPage.length === 0) return undefined;
+      const lastImage = lastPage[lastPage.length - 1];
+      return {
+        last_sort_value: lastImage.date_created,
+        last_content_id: lastImage.content_id,
+        last_location_id: lastImage.id,
+      };
+    },
+  });
+
+  const images = data?.pages.flatMap(page => page) ?? [];
+
+  // Effect to report the current set of images back to the parent component.
+  // We stringify `images` in the dependency array to prevent re-renders
+  // if the array reference changes but its content does not.
+  useEffect(() => {
+    onImagesChange?.(images);
+  }, [JSON.stringify(images), onImagesChange]);
 
   const [focusedImageId, setFocusedImageId] = useState(null);
 
@@ -98,10 +159,10 @@ function ImageGrid({
       }
     } else {
       // Normal mode: fetch fresh data for the image before opening the modal
-      const freshImageData = await fetchImageById(image.id);
+      const freshImageData = await queryClient.fetchQuery({ queryKey: ['image', image.id], queryFn: () => fetchImageByIdApi(image.id, token) });
       if (!freshImageData) {
         alert("Could not load image data. It may have been moved, deleted, or you may no longer have permission to view it.");
-        setImages(prevImages => prevImages.filter(img => img.id !== image.id));
+        queryClient.invalidateQueries({ queryKey: queryKey });
         return;
       }
 
@@ -111,11 +172,10 @@ function ImageGrid({
         images: images,
         fetchMoreImages: hasMore ? fetchMoreImages : null,
         hasMore: hasMore,
-        setImages: setImages,
         onNavigate: setFocusedImageId,
       });
     }
-  }, [isSelectMode, openModal, images, setSelectedImages, focusedImageId, fetchImageById, setImages, setFocusedImageId, hasMore, fetchMoreImages]);
+  }, [isSelectMode, openModal, images, setSelectedImages, focusedImageId, token, queryClient, queryKey, hasMore, fetchMoreImages, setFocusedImageId]);
 
   // Handle right-click event on a thumbnail
   const handleContextMenu = (event, thumbnail) => {
@@ -148,7 +208,7 @@ function ImageGrid({
     setContextMenu(prev => ({ ...prev, isVisible: false }));
   }, [setContextMenu]);
 
-  const imageActions = useImageActions({ setImages, selectedImages, setSelectedImages, setIsSelectMode, openModal });
+  const imageActions = useImageActions({ selectedImages, setSelectedImages, setIsSelectMode, openModal });
 
   // Handle click on a context menu item
   const handleMenuItemClick = (action, data) => {
@@ -301,19 +361,14 @@ function ImageGrid({
       }).filter(Boolean)
     );
 
-    if (hasGeneralRefresh) {
-      console.log("WebSocket: Received general refresh message. Fetching latest image data.");
-      // isInitialLoad=true tells the hook to fetch from page 1 and merge.
-      // isWsRefresh=true can be used by the hook to avoid showing a loading spinner.
-      fetchImages(true, true);
-    } else if (deletedImageIds.size > 0) {
-      console.log("WebSocket: Removing deleted images from grid:", Array.from(deletedImageIds));
-      setImages(prevImages => prevImages.filter(img => !deletedImageIds.has(img.id)));
+    if (hasGeneralRefresh || deletedImageIds.size > 0) {
+      console.log("WebSocket: Change detected, invalidating image query.", { hasGeneralRefresh, deletedImageIds: Array.from(deletedImageIds) });
+      queryClient.invalidateQueries({ queryKey: queryKey });
     }
     
     // Clear the message queue after processing.
     setWebSocketMessage([]);
-  }, [webSocketMessage, setWebSocketMessage, setImages, fetchImages]);
+  }, [webSocketMessage, setWebSocketMessage, queryClient, queryKey]);
 
   // Wrapper for handleImageClick to be used by useGlobalHotkeys
   const handleImageOpen = useCallback((_event, imageToOpen) => {
