@@ -142,9 +142,11 @@ function ImageGrid({
   };
 
   // Close the context menu
-  const handleCloseContextMenu = () => {
-      setContextMenu({ ...contextMenu, isVisible: false });
-  };
+  const handleCloseContextMenu = useCallback(() => {
+    // Use the functional update form of setState to avoid dependency on contextMenu state
+    // This gives the function a stable identity.
+    setContextMenu(prev => ({ ...prev, isVisible: false }));
+  }, [setContextMenu]);
 
   const imageActions = useImageActions({ setImages, selectedImages, setSelectedImages, setIsSelectMode, openModal });
 
