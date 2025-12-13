@@ -185,6 +185,10 @@ header, main, section {
     border: 1px solid var(--border-color);
 }
 
+main {
+    min-height:1000px;
+}
+
 header {
   position: sticky;
   top: 0;
@@ -838,15 +842,14 @@ form .section-list .section-item .section-fields:nth-child(3) {
 }
 
 /* --- IMAGE GALLERY STYLING --- */
-
+/*
 .image-grid {
     display: grid;
-    /*grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));*/
     grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
     gap: 0.5rem;
     align-items: start;
 }
-
+*/
 .btn-base.thumbnail {
   height: unset;
   background: unset;

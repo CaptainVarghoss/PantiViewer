@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
  * @param {object} props - The component props.
  * @param {object} props.image - The image object containing details like id, filename, and meta.
  */
-const ImageCard = forwardRef(({ image, onClick, onContextMenu, isSelected, isFocused, refreshKey }, ref) => {
+const ImageCard = ({ image, onContextMenu }) => {
   // The logic is now much simpler. The backend provides the correct URL,
   // whether it's a placeholder or the actual thumbnail.
   const thumbnailUrl = image.thumbnail_url;
@@ -60,6 +60,6 @@ const ImageCard = forwardRef(({ image, onClick, onContextMenu, isSelected, isFoc
       </AnimatePresence>
     </motion.div>
   );
-});
+};
 
 export default ImageCard;

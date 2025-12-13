@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ImageCard from '../components/ImageCard';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Grid } from "react-window";
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import ContextMenu from './ContextMenu';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
@@ -26,10 +27,31 @@ function ImageGrid({
   openModal,
   onImagesChange, // New prop to report images back to parent
 }) {
-  const { token } = useAuth();
+  const { token, settings } = useAuth();
   const { searchQuery } = useSearch();
   const { filters } = useFilters();
   const queryClient = useQueryClient();
+  const containerRef = useRef(null);
+  const gridRef = useRef(null); // Ref for the grid container
+
+  const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries && entries.length > 0) {
+        const { width, height } = entries[0].contentRect;
+        setGridSize({ width, height });
+      }
+    });
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      if (containerRef.current) resizeObserver.unobserve(containerRef.current);
+    };
+  }, []);
 
   // Compute activeStages from the filters context.
   // Only include filters that are in a non-default state (index > 0).
@@ -53,7 +75,7 @@ function ImageGrid({
   } = useInfiniteQuery({
     queryKey: queryKey,
     queryFn: async ({ pageParam }) => {
-      const params = { limit: 50 };
+      const params = { limit: 250 };
 
       if (trash_only) {
         params.trash_only = true;
@@ -84,7 +106,7 @@ function ImageGrid({
     },
   });
 
-  const images = data?.pages.flatMap(page => page) ?? [];
+  const images = useMemo(() => data?.pages.flatMap(page => page) ?? [], [data]);
 
   // Effect to report the current set of images back to the parent component.
   // We stringify `images` in the dependency array to prevent re-renders
@@ -101,7 +123,6 @@ function ImageGrid({
       y: 0,
       thumbnailData: null, // Data of the thumbnail that was right-clicked
     });
-  const gridRef = useRef(null); // Ref for the grid container
 
   // Variants for the container
   const gridContainerVariants = {
@@ -290,16 +311,12 @@ function ImageGrid({
     }
   }
 
-  // Clear selection when exiting select mode
   useEffect(() => {
     if (!isSelectMode) {
       setSelectedImages(new Set());
     }
   }, [isSelectMode]);
 
-  // Effect to synchronize selectedImages with the images currently in view.
-  // This is crucial for when images are removed from the grid (e.g., due to filtering after a tag edit)
-  // to ensure the selection count is accurate and doesn't include hidden images.
   useEffect(() => {
     if (selectedImages.size > 0) {
       const visibleImageIds = new Set(images.map(img => img.id));
@@ -311,14 +328,10 @@ function ImageGrid({
       }
       setSelectedImages(newSelectedImages);
     }
-  }, [images]); // Reruns whenever the list of images changes.
+  }, [images]);
 
-  // Effect to handle cleanup after bulk tag editing causes images to be filtered out.
-  // If select mode is on, but the selection becomes empty, it's likely due to a bulk action
-  // filtering the items out of view. In this case, we should exit select mode.
   const initialMount = useRef(true);
   useEffect(() => {
-    // On initial mount, don't run this effect.
     if (initialMount.current) {
       initialMount.current = false;
       return;
@@ -332,13 +345,9 @@ function ImageGrid({
 
   // Effect to scroll the focused image into view, especially for modal navigation
   useEffect(() => {
-    // This logic is primarily for when the modal is open and navigating.
-    // The modal being open is an implicit condition, as `focusedImageId` is updated by the modal's onNavigate.
     if (focusedImageId) {
       const cardElement = document.querySelector(`[data-image-id="${focusedImageId}"]`);
       if (cardElement) {
-        // Use 'nearest' to avoid unnecessary scrolling if the item is already visible.
-        // This is key for triggering the IntersectionObserver when the item is off-screen.
         cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     }
@@ -350,8 +359,6 @@ function ImageGrid({
       return;
     }
     
-    // Since the backend now debounces, we can process messages directly.
-    // We only need to look for the last relevant message in the batch.
     const hasGeneralRefresh = webSocketMessage.some(msg => msg.type === 'refresh_images');
     const deletedImageIds = new Set(
       webSocketMessage.flatMap(msg => {
@@ -392,64 +399,63 @@ function ImageGrid({
     gridRef: gridRef,
     setFocusedImageId: setFocusedImageId,
   });
-
-  // Ref for the element to observe for infinite scrolling
-  const observer = useRef();
-  const lastImageElementRef = useCallback(node => {
-    // Disconnect any existing observer before creating a new one.
-    if (observer.current) observer.current.disconnect();
-
-    // Create a new IntersectionObserver instance
-    observer.current = new IntersectionObserver(entries => {
-      // If the observed element is intersecting, trigger the next fetch.
-      // The guards inside the callback prevent re-fetching.
-      if (entries[0].isIntersecting && hasMore && !isFetchingMore && !imagesLoading) {
-        fetchMoreImages();
-      }
-    }, {
-      root: null, // Use the viewport as the root element
-      rootMargin: '200px', // When the target element is 200px from the bottom of the viewport, trigger the callback
-      threshold: 0.1 // Trigger when 10% of the target element is visible
-    }); 
-
-    // Start observing the provided DOM node if it exists
-    if (node) {
-      observer.current.observe(node);
+  
+  const handleScroll = useCallback(({ scrollTop, scrollHeight, clientHeight }) => {
+    // Trigger fetchMoreImages when user is near the bottom
+    if (scrollHeight - scrollTop - clientHeight < 1000 && hasMore && !isFetchingMore) {
+      fetchMoreImages();
     }
-  }, [hasMore, isFetchingMore, imagesLoading, fetchMoreImages]); // The dependency array is now minimal and correct.
+  }, [hasMore, isFetchingMore, fetchMoreImages]);
+
+  // Cell component for react-window Grid
+  const CellComponent = ({ columnIndex, rowIndex, style, images, columnCount }) => {
+    const index = rowIndex * columnCount + columnIndex;
+    if (index >= images.length) {
+      return null; // Render nothing if the cell is outside the range of items
+    }
+    const image = images[index];
+
+    return (
+      <motion.div
+        layout
+        key={image.id}
+        data-image-id={image.id}
+        className={`btn-base btn-primary image-card ${selectedImages.has(image.id) ? 'selected' : ''} ${focusedImageId === image.id ? 'focused' : ''}`}
+        onClick={(e) => handleImageClick(e, image)}
+        style={style}
+      >
+        <ImageCard
+          image={image}
+          onContextMenu={(e) => handleContextMenu(e, image)}
+          refreshKey={image.refreshKey} />
+      </motion.div>
+    );
+  };
 
   return (
     <>
-      <motion.div
-        layout
-        ref={gridRef}
-        className={`image-grid ${isSelectMode ? 'select-mode' : ''}`}
-        variants={gridContainerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <AnimatePresence>
-          {images.map((image, index) => (
-            <motion.div
-              layout
-              key={image.id}
-              data-image-id={image.id}
-              variants={imageCardVariants}
-              initial="hidden"
-              animate="visible"
-              exit="hidden"              
-              ref={images.length === index + 1 && hasMore ? lastImageElementRef : null}
-              className={`btn-base btn-primary image-card ${selectedImages.has(image.id) ? 'selected' : ''} ${focusedImageId === image.id ? 'focused' : ''}`}
-              onClick={(e) => handleImageClick(e, image)}
-              style={{ transition: 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
-            >
-              <ImageCard
-                image={image}
-                onContextMenu={(e) => handleContextMenu(e, image)}
-                refreshKey={image.refreshKey} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
+      <div ref={containerRef} className={`image-grid-container ${isSelectMode ? 'select-mode' : ''}`}>
+        {gridSize.width > 0 && gridSize.height > 0 && (() => {
+          const thumb_size = Math.floor(settings.thumb_size / 2);
+          const columnCount = Math.max(1, Math.floor(gridSize.width / thumb_size));
+          const rowCount = Math.ceil(images.length / columnCount);
+          
+          return (
+            <AnimatePresence>
+              <Grid
+                cellComponent={CellComponent}
+                cellProps={{images, columnCount}}
+                ref={gridRef}
+                className="image-grid"
+                columnCount={columnCount}
+                columnWidth={thumb_size}
+                rowCount={rowCount}
+                rowHeight={thumb_size}
+                onScroll={handleScroll}
+              ></Grid>
+            </AnimatePresence>
+          );
+        })()}
 
         {imagesError && <p>{imagesError}</p>}
 
@@ -460,7 +466,7 @@ function ImageGrid({
         {!imagesLoading && !isFetchingMore && images.length === 0 && !imagesError && (
           <p>No images found. Add some to your configured paths and run the scanner!</p>
         )}
-      </motion.div>
+      </div>
 
       <ContextMenu
         isOpen={contextMenu.isVisible}
