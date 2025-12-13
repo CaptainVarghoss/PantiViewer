@@ -12,6 +12,7 @@
     "headless-dev": "concurrently \"npm run start-react\" \"npm run start-fastapi\""
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.12",
     "framer-motion": "^12.23.24",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
