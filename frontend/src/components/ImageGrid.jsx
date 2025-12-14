@@ -41,6 +41,7 @@ function ImageGrid({
       if (entries && entries.length > 0) {
         const { width, height } = entries[0].contentRect;
         setGridSize({ width, height });
+        console.log(width, height)
       }
     });
 
@@ -400,12 +401,15 @@ function ImageGrid({
     setFocusedImageId: setFocusedImageId,
   });
   
-  const handleScroll = useCallback(({ scrollTop, scrollHeight, clientHeight }) => {
+  const handleScroll = useCallback(({ scrollOffset }) => {
+    // scrollOffset is the current scrollTop
+    const innerHeight = gridRef.current?.props.height || 0;
+    const scrollHeight = gridRef.current?._outerRef.scrollHeight || 0;
     // Trigger fetchMoreImages when user is near the bottom
-    if (scrollHeight - scrollTop - clientHeight < 1000 && hasMore && !isFetchingMore) {
+    if (scrollHeight - scrollOffset - innerHeight < 1000 && hasMore && !isFetchingMore) {
       fetchMoreImages();
     }
-  }, [hasMore, isFetchingMore, fetchMoreImages]);
+  }, [hasMore, isFetchingMore, fetchMoreImages, gridRef]);
 
   // Cell component for react-window Grid
   const CellComponent = ({ columnIndex, rowIndex, style, images, columnCount }) => {
@@ -416,13 +420,12 @@ function ImageGrid({
     const image = images[index];
 
     return (
-      <div className="image-card-outer">
+      <div className="image-card-outer" style={style}>
         <div
           key={image.id}
           data-image-id={image.id}
           className={`btn-base btn-primary image-card ${selectedImages.has(image.id) ? 'selected' : ''} ${focusedImageId === image.id ? 'focused' : ''}`}
           onClick={(e) => handleImageClick(e, image)}
-          style={style}
         >
           <ImageCard
             image={image}
@@ -448,23 +451,21 @@ function ImageGrid({
           const columnWidth = (gridSize.width - (columnCount - 1) * gap) / columnCount;
           const rowHeight = columnWidth; // Keep thumbnails square
 
-          const rowCount = Math.ceil(gridSize.height / rowHeight + 2);
+          const rowCount = Math.ceil(images.length / columnCount);
 
           return (
-            <AnimatePresence>
-              <Grid
-                cellComponent={CellComponent}
-                cellProps={{images, columnCount}}
-                ref={gridRef}
-                className="image-grid"
-                columnCount={columnCount}
-                columnWidth={columnWidth}
-                rowCount={rowCount}
-                rowHeight={rowHeight}
-                overscanCount="3"
-                onScroll={handleScroll}
-              ></Grid>
-            </AnimatePresence>
+            <Grid
+              cellComponent={CellComponent}
+              cellProps={{images, columnCount}}
+              ref={gridRef}
+              className="image-grid"
+              columnCount={columnCount}
+              columnWidth={columnWidth}
+              rowCount={rowCount}
+              rowHeight={rowHeight}
+              overscanCount="3"
+              onScroll={handleScroll}
+            ></Grid>
           );
         })()}
 

@@ -204,10 +204,9 @@ header {
   z-index: 1000;
 }
 main {
-    flex-grow: 1; /* Allow main to fill available space */
-    overflow-y: auto; /* Enable vertical scrolling within main */
-    min-height: 0; /* Important for flexbox children to allow shrinking */
-    padding: 0 0.5rem 0.5rem; /* Adjust padding to match old margin */
+    flex-grow: 1;
+    min-height: 0;
+    padding: 0 0.5rem 0.5rem;
 }
 
 nav {
@@ -860,6 +859,7 @@ form .section-list .section-item .section-fields:nth-child(3) {
 .image-grid-container {
   height: 100%;
   width: 100%;
+  overflow: auto;
 }
 
 .image-card-outer {
@@ -870,7 +870,7 @@ form .section-list .section-item .section-fields:nth-child(3) {
     overflow: hidden;
     aspect-ratio: 1/1;
     margin: 0.5rem;
-    padding: 0.5rem;
+    padding: 0;
     border-radius: 0.5rem;
 }
 
