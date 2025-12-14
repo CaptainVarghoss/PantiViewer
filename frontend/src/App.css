@@ -61,8 +61,10 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
 }
 
 .main-content {
+    display: flex;
+    flex-direction: column;
     width: var(--width-main);
-    min-height: 100vh;
+    height: 100vh;
     background-color: var(--bg-page);
     font-family: 'Inter', sans-serif;
     color: var(--shadow-color);
@@ -176,21 +178,18 @@ p {
 }
 
 /* --- HEADER/NAVIGATION --- */
-header, main, section {
+header, section {
     background-color: var(--bg-header);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
     border-radius: var(--radius-xl);
     margin-bottom: 0.5rem;
     padding: 0.5rem;
     border: 1px solid var(--border-color);
-}
-
-main {
-    min-height:1000px;
+    flex-shrink: 0; /* Prevent header from shrinking */
 }
 
 header {
-  position: sticky;
+  position: relative; /* Changed from sticky */
   top: 0;
   z-index: 10;
 }
@@ -203,6 +202,12 @@ header {
   width: 0.1rem;
   border: 0.1rem solid;
   z-index: 1000;
+}
+main {
+    flex-grow: 1; /* Allow main to fill available space */
+    overflow-y: auto; /* Enable vertical scrolling within main */
+    min-height: 0; /* Important for flexbox children to allow shrinking */
+    padding: 0 0.5rem 0.5rem; /* Adjust padding to match old margin */
 }
 
 nav {
@@ -842,24 +847,30 @@ form .section-list .section-item .section-fields:nth-child(3) {
 }
 
 /* --- IMAGE GALLERY STYLING --- */
-/*
-.image-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
-    gap: 0.5rem;
-    align-items: start;
+
+.image-grid .row {
+    height: 240px;
 }
-*/
+
 .btn-base.thumbnail {
   height: unset;
   background: unset;
 }
 
+.image-grid-container {
+  height: 100%;
+  width: 100%;
+}
+
+.image-card-outer {
+    padding: 0.5rem;
+}
 .image-card {
     height: auto;
     overflow: hidden;
     aspect-ratio: 1/1;
-    padding: 0rem;
+    margin: 0.5rem;
+    padding: 0.5rem;
     border-radius: 0.5rem;
 }
 

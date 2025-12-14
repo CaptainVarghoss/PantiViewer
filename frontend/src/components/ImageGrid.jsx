@@ -416,30 +416,40 @@ function ImageGrid({
     const image = images[index];
 
     return (
-      <motion.div
-        layout
-        key={image.id}
-        data-image-id={image.id}
-        className={`btn-base btn-primary image-card ${selectedImages.has(image.id) ? 'selected' : ''} ${focusedImageId === image.id ? 'focused' : ''}`}
-        onClick={(e) => handleImageClick(e, image)}
-        style={style}
-      >
-        <ImageCard
-          image={image}
-          onContextMenu={(e) => handleContextMenu(e, image)}
-          refreshKey={image.refreshKey} />
-      </motion.div>
+      <div className="image-card-outer">
+        <div
+          key={image.id}
+          data-image-id={image.id}
+          className={`btn-base btn-primary image-card ${selectedImages.has(image.id) ? 'selected' : ''} ${focusedImageId === image.id ? 'focused' : ''}`}
+          onClick={(e) => handleImageClick(e, image)}
+          style={style}
+        >
+          <ImageCard
+            image={image}
+            onContextMenu={(e) => handleContextMenu(e, image)}
+            refreshKey={image.refreshKey} />
+        </div>
+      </div>
     );
   };
 
   return (
     <>
       <div ref={containerRef} className={`image-grid-container ${isSelectMode ? 'select-mode' : ''}`}>
-        {gridSize.width > 0 && gridSize.height > 0 && (() => {
-          const thumb_size = Math.floor(settings.thumb_size / 2);
-          const columnCount = Math.max(1, Math.floor(gridSize.width / thumb_size));
-          const rowCount = Math.ceil(images.length / columnCount);
-          
+        {gridSize.width > 0 && gridSize.height > 0 && images.length > 0 && (() => {
+          // Convert gap from rem to pixels once. Assuming 1rem = 16px as a base.
+          const gap = 0.5 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+          const baseThumbSize = settings.thumb_size / 2;
+
+          // Calculate how many columns can fit
+          const columnCount = Math.max(1, Math.floor((gridSize.width + gap) / (baseThumbSize + gap)));
+
+          // Calculate the actual width of each column to fill the container perfectly
+          const columnWidth = (gridSize.width - (columnCount - 1) * gap) / columnCount;
+          const rowHeight = columnWidth; // Keep thumbnails square
+
+          const rowCount = Math.ceil(gridSize.height / rowHeight + 2);
+
           return (
             <AnimatePresence>
               <Grid
@@ -448,9 +458,10 @@ function ImageGrid({
                 ref={gridRef}
                 className="image-grid"
                 columnCount={columnCount}
-                columnWidth={thumb_size}
+                columnWidth={columnWidth}
                 rowCount={rowCount}
-                rowHeight={thumb_size}
+                rowHeight={rowHeight}
+                overscanCount="3"
                 onScroll={handleScroll}
               ></Grid>
             </AnimatePresence>
