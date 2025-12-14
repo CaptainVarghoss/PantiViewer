@@ -185,15 +185,22 @@ function ImageGrid({
         });
       }
     } else {
-      const freshImageData = await queryClient.fetchQuery({ queryKey: ['image', image.id], queryFn: () => fetchImageByIdApi(image.id, token) });
-      if (!freshImageData) {
+      // Try to get the image data from the cache first.
+      let imageData = queryClient.getQueryData(['image', image.id]);
+
+      // If not in the cache, fetch it.
+      if (!imageData) {
+        imageData = await queryClient.fetchQuery({ queryKey: ['image', image.id], queryFn: () => fetchImageByIdApi(image.id, token) });
+      }
+
+      if (!imageData) {
         alert("Could not load image data. It may have been moved, deleted, or you may no longer have permission to view it.");
         queryClient.invalidateQueries({ queryKey: queryKey });
         return;
       }
       openModal('image', {
         originBounds: imageCardElement,
-        currentImage: freshImageData,
+        currentImage: imageData,
         images: images,
         fetchMoreImages: hasMore ? fetchMoreImages : null,
         hasMore: hasMore,
@@ -376,7 +383,6 @@ function ImageGrid({
       return;
     }
     
-    const hasGeneralRefresh = webSocketMessage.some(msg => msg.type === 'refresh_images');
     const deletedImageIds = new Set(
       webSocketMessage.flatMap(msg => {
         if (msg.type === 'image_deleted') return [msg.image_id];
@@ -384,12 +390,28 @@ function ImageGrid({
         return [];
       }).filter(Boolean)
     );
-
-    if (hasGeneralRefresh || deletedImageIds.size > 0) {
-      console.log("WebSocket: Change detected, invalidating image query.", { hasGeneralRefresh, deletedImageIds: Array.from(deletedImageIds) });
-      queryClient.invalidateQueries({ queryKey: queryKey });
+    
+    // Handle deletions by directly updating the cache
+    if (deletedImageIds.size > 0) {
+      console.log("WebSocket: Removing deleted images from cache.", { deletedImageIds: Array.from(deletedImageIds) });
+      queryClient.setQueryData(queryKey, (oldData) => {
+        if (!oldData) return oldData;
+        
+        // Create a new data object with the deleted images filtered out from each page
+        return {
+          ...oldData,
+          pages: oldData.pages.map(page => page.filter(image => !deletedImageIds.has(image.id))),
+        };
+      });
     }
     
+    // Handle general refresh messages by invalidating the query
+    const hasGeneralRefresh = webSocketMessage.some(msg => msg.type === 'refresh_images');
+    if (hasGeneralRefresh) {
+      console.log("WebSocket: General refresh detected, invalidating image query.");
+      queryClient.invalidateQueries({ queryKey: queryKey });
+    }
+
     // Clear the message queue after processing.
     setWebSocketMessage([]);
   }, [webSocketMessage, setWebSocketMessage, queryClient, queryKey]);
@@ -472,9 +494,8 @@ function ImageGrid({
       <div ref={containerRef} className={`image-grid-container ${isSelectMode ? 'select-mode' : ''}`}>
         {gridSize.width > 0 && gridSize.height > 0 && columnCount > 0 ? (
           <Grid
-            // The key should only change if the grid's fundamental layout changes (e.g., column count).
-            // It should NOT change when rowCount increases due to new data.
-            key={`${gridSize.width}-${columnCount}`}
+            // The key must be stable as long as the grid's fundamental layout is the same.
+            key={`image-grid-${columnCount}`}
             ref={gridRef}
             className="image-grid"
             columnCount={columnCount}

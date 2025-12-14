@@ -187,14 +187,17 @@ def read_image(
     # Eager loads associated tags and includes paths to generated media.
     # Triggers thumbnail generation if not found.
 
-    location_image = db.query(models.ImageLocation).filter(models.ImageLocation.id == image_id).first()
+    location_image = db.query(models.ImageLocation).options(
+        joinedload(models.ImageLocation.content).joinedload(models.ImageContent.tags)
+    ).filter(models.ImageLocation.id == image_id).first()
+
     if location_image is None:
         raise HTTPException(status_code=404, detail="Image location not found")
 
-    db_image = db.query(models.ImageContent).filter(models.ImageContent.content_hash == location_image.content_hash).first()
+    db_image = location_image.content
     if db_image is None:
         raise HTTPException(status_code=404, detail="Image content not found")
-
+    
     # Check if thumbnail exists, if not, trigger generation in background
     expected_thumbnail_path = os.path.join(config.THUMBNAILS_DIR, f"{db_image.content_hash}_thumb.webp")
     if os.path.exists(expected_thumbnail_path):
@@ -226,6 +229,8 @@ def read_image(
         id=location_image.id,
         filename=location_image.filename,
         path=location_image.path,
+        thumbnail_url=thumbnail_url,
+        thumbnail_missing=thumbnail_missing,
         **db_image.__dict__
     )
 
@@ -260,7 +265,13 @@ def update_image(image_id: int, image_update: schemas.ImageTagUpdate, db: Sessio
         message = {"type": "refresh_images", "reason": "tags_updated"}
         asyncio.run_coroutine_threadsafe(manager.broadcast_json(message), database.main_event_loop)
 
-    return read_image(image_id, db)
+    # Re-fetch the image with all its data to return the updated object
+    # This avoids calling read_image and creating a new dependency chain
+    updated_location_image = db.query(models.ImageLocation).options(
+        joinedload(models.ImageLocation.content).joinedload(models.ImageContent.tags)
+    ).filter(models.ImageLocation.id == image_id).first()
+
+    return updated_location_image
 
 @router.post("/images/tags/bulk-update", status_code=status.HTTP_204_NO_CONTENT)
 def bulk_update_image_tags(
