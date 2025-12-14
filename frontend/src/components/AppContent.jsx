@@ -19,7 +19,6 @@ export function AppContent({
   const { token, isAdmin } = useAuth();
 
   const [webSocketMessage, setWebSocketMessage] = useState([]);
-  const [gridImages, setGridImages] = useState([]); // State to hold images for Navbar
   const [selectedImages, setSelectedImages] = useState(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
 
@@ -122,7 +121,6 @@ export function AppContent({
           selectedImages={selectedImages}
           setSelectedImages={setSelectedImages}
           openModal={openModal}
-          images={gridImages}
         />
         <ConnectionStatus />
       </header>
@@ -136,7 +134,6 @@ export function AppContent({
             selectedImages={selectedImages}
             setSelectedImages={setSelectedImages}
             openModal={openModal}
-            onImagesChange={setGridImages}
           />
         )}
         {currentView === 'trash' && (
@@ -167,7 +164,6 @@ export function AppContent({
                 selectedImages={selectedImages}
                 setSelectedImages={setSelectedImages}
                 openModal={openModal}
-                onImagesChange={setGridImages}
               />
             </div>
           </div>

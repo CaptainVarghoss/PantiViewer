@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ImageCard from '../components/ImageCard';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Grid } from "react-window";
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import ContextMenu from './ContextMenu';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
@@ -10,6 +9,7 @@ import { fetchImagesApi, fetchImageByIdApi } from '../api/imageService';
 import { useAuth } from '../context/AuthContext';
 import { useSearch } from '../context/SearchContext';
 import { useFilters } from '../context/FilterContext';
+import { FixedSizeGrid as Grid } from 'react-window';
 
 /**
  * Component to display the image gallery with infinite scrolling using cursor-based pagination.
@@ -24,8 +24,7 @@ function ImageGrid({
   setSelectedImages,
   trash_only = false,
   contextMenuItems,
-  openModal,
-  onImagesChange, // New prop to report images back to parent
+  openModal
 }) {
   const { token, settings } = useAuth();
   const { searchQuery } = useSearch();
@@ -56,14 +55,16 @@ function ImageGrid({
 
   // Compute activeStages from the filters context.
   // Only include filters that are in a non-default state (index > 0).
-  const activeStages = filters.reduce((acc, filter) => {
-    if (filter.activeStageIndex > 0) {
-      acc[filter.id] = filter.activeStageIndex;
-    }
-    return acc;
-  }, {});
+  const activeStages = useMemo(() => {
+    return filters.reduce((acc, filter) => {
+      if (filter.activeStageIndex > 0) {
+        acc[filter.id] = filter.activeStageIndex;
+      }
+      return acc;
+    }, {});
+  }, [filters]);
 
-  const queryKey = ['images', { trash_only, searchQuery, activeStages: JSON.stringify(activeStages) }];
+  const queryKey = useMemo(() => ['images', { trash_only, searchQuery, activeStages: JSON.stringify(activeStages) }], [trash_only, searchQuery, activeStages]);
 
   const {
     data,
@@ -76,7 +77,7 @@ function ImageGrid({
   } = useInfiniteQuery({
     queryKey: queryKey,
     queryFn: async ({ pageParam }) => {
-      const params = { limit: 250 };
+      const params = { limit: 50 };
 
       if (trash_only) {
         params.trash_only = true;
@@ -99,6 +100,7 @@ function ImageGrid({
     getNextPageParam: (lastPage) => {
       if (!lastPage || lastPage.length === 0) return undefined;
       const lastImage = lastPage[lastPage.length - 1];
+
       return {
         last_sort_value: lastImage.date_created,
         last_content_id: lastImage.content_id,
@@ -108,13 +110,6 @@ function ImageGrid({
   });
 
   const images = useMemo(() => data?.pages.flatMap(page => page) ?? [], [data]);
-
-  // Effect to report the current set of images back to the parent component.
-  // We stringify `images` in the dependency array to prevent re-renders
-  // if the array reference changes but its content does not.
-  useEffect(() => {
-    onImagesChange?.(images);
-  }, [JSON.stringify(images), onImagesChange]);
 
   const [focusedImageId, setFocusedImageId] = useState(null);
 
@@ -146,21 +141,36 @@ function ImageGrid({
     return images.find(img => img.id === focusedImageId);
   }, [images, focusedImageId]);
 
+  // Use a ref to hold props/state for callbacks to give them a stable identity
+  const callbackStateRef = useRef();
+  callbackStateRef.current = {
+    isSelectMode,
+    focusedImageId,
+    images,
+    setSelectedImages,
+    openModal,
+    token,
+    queryClient,
+    queryKey,
+    hasMore,
+    fetchMoreImages,
+    setFocusedImageId
+  };
+
   const handleImageClick = useCallback(async (event, image) => {
+    const { isSelectMode, focusedImageId, images, setSelectedImages, openModal, token, queryClient, queryKey, hasMore, fetchMoreImages, setFocusedImageId } = callbackStateRef.current;
+
     const imageCardElement = event.currentTarget.getBoundingClientRect();
-    setFocusedImageId(image.id); // Set focus on click
+    setFocusedImageId(image.id);
+
     if (isSelectMode) {
-      // In select mode, handle selection logic
       if (event.shiftKey && focusedImageId) {
-        // Shift-click for range selection
         const lastFocusedIndex = images.findIndex(img => img.id === focusedImageId);
         const clickedIndex = images.findIndex(img => img.id === image.id);
-  
         if (lastFocusedIndex !== -1 && clickedIndex !== -1) {
           const start = Math.min(lastFocusedIndex, clickedIndex);
           const end = Math.max(lastFocusedIndex, clickedIndex);
           const rangeToSelect = images.slice(start, end + 1).map(img => img.id);
-  
           setSelectedImages(prevSelected => {
             const newSelected = new Set(prevSelected);
             rangeToSelect.forEach(id => newSelected.add(id));
@@ -168,36 +178,29 @@ function ImageGrid({
           });
         }
       } else {
-        // Normal click in select mode: toggle selection
         setSelectedImages(prevSelected => {
           const newSelected = new Set(prevSelected);
-          if (newSelected.has(image.id)) {
-            newSelected.delete(image.id);
-          } else {
-            newSelected.add(image.id);
-          }
+          newSelected.has(image.id) ? newSelected.delete(image.id) : newSelected.add(image.id);
           return newSelected;
         });
       }
     } else {
-      // Normal mode: fetch fresh data for the image before opening the modal
       const freshImageData = await queryClient.fetchQuery({ queryKey: ['image', image.id], queryFn: () => fetchImageByIdApi(image.id, token) });
       if (!freshImageData) {
         alert("Could not load image data. It may have been moved, deleted, or you may no longer have permission to view it.");
         queryClient.invalidateQueries({ queryKey: queryKey });
         return;
       }
-
       openModal('image', {
         originBounds: imageCardElement,
         currentImage: freshImageData,
         images: images,
         fetchMoreImages: hasMore ? fetchMoreImages : null,
         hasMore: hasMore,
-        onNavigate: setFocusedImageId,
+        onNavigate: (id) => setFocusedImageId(id),
       });
     }
-  }, [isSelectMode, openModal, images, setSelectedImages, focusedImageId, token, queryClient, queryKey, hasMore, fetchMoreImages, setFocusedImageId]);
+  }, []); // Now has a stable identity
 
   // Handle right-click event on a thumbnail
   const handleContextMenu = (event, thumbnail) => {
@@ -318,19 +321,6 @@ function ImageGrid({
     }
   }, [isSelectMode]);
 
-  useEffect(() => {
-    if (selectedImages.size > 0) {
-      const visibleImageIds = new Set(images.map(img => img.id));
-      const newSelectedImages = new Set();
-      for (const id of selectedImages) {
-        if (visibleImageIds.has(id)) {
-          newSelectedImages.add(id);
-        }
-      }
-      setSelectedImages(newSelectedImages);
-    }
-  }, [images]);
-
   const initialMount = useRef(true);
   useEffect(() => {
     if (initialMount.current) {
@@ -344,15 +334,41 @@ function ImageGrid({
     }
   }, [selectedImages]); // Only depends on selectedImages
 
-  // Effect to scroll the focused image into view, especially for modal navigation
+  // Calculate column-related grid dimensions. These only depend on width and settings.
+  const { columnCount, columnWidth, rowHeight } = useMemo(() => {
+    if (gridSize.width <= 0 || !settings?.thumb_size) {
+      return { columnCount: 0, columnWidth: 0, rowHeight: 0 };
+    }
+    const gap = 0.5 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const baseThumbSize = settings.thumb_size / 2;
+
+    const calculatedColumnCount = Math.max(1, Math.floor((gridSize.width + gap) / (baseThumbSize + gap)));
+    const calculatedColumnWidth = (gridSize.width - (calculatedColumnCount - 1) * gap) / calculatedColumnCount;
+    const calculatedRowHeight = calculatedColumnWidth; // Keep thumbnails square for consistent aspect ratio
+
+    return { columnCount: calculatedColumnCount, columnWidth: calculatedColumnWidth, rowHeight: calculatedRowHeight };
+  }, [gridSize.width, settings?.thumb_size]);
+
+  // Calculate rowCount separately, as it depends on the number of images.
+  const rowCount = useMemo(() => {
+    if (!columnCount || images.length === 0) return 0;
+    const calculatedRowCount = Math.ceil(images.length / columnCount);
+    return calculatedRowCount;
+  }, [images.length, columnCount]);
+
+  // Effect to scroll the focused image into view using react-window's API
   useEffect(() => {
-    if (focusedImageId) {
-      const cardElement = document.querySelector(`[data-image-id="${focusedImageId}"]`);
-      if (cardElement) {
-        cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Only scroll when focusedImageId changes and is not null.
+    if (focusedImageId && gridRef.current && columnCount > 0) {
+      const index = images.findIndex(img => img.id === focusedImageId);
+      if (index !== -1) {
+        const rowIndex = Math.floor(index / columnCount);
+        // Use a timeout to ensure the grid has had a chance to render before we scroll.
+        // This can help prevent race conditions where scrolling happens before the item is available.
+        setTimeout(() => gridRef.current?.scrollToItem({ rowIndex, align: 'smart' }), 50);
       }
     }
-  }, [focusedImageId]);
+  }, [focusedImageId]); // Only run when the focused image ID itself changes.
 
   // Effect for handling WebSocket messages
   useEffect(() => {
@@ -400,19 +416,11 @@ function ImageGrid({
     gridRef: gridRef,
     setFocusedImageId: setFocusedImageId,
   });
-  
-  const handleScroll = useCallback(({ scrollOffset }) => {
-    // scrollOffset is the current scrollTop
-    const innerHeight = gridRef.current?.props.height || 0;
-    const scrollHeight = gridRef.current?._outerRef.scrollHeight || 0;
-    // Trigger fetchMoreImages when user is near the bottom
-    if (scrollHeight - scrollOffset - innerHeight < 1000 && hasMore && !isFetchingMore) {
-      fetchMoreImages();
-    }
-  }, [hasMore, isFetchingMore, fetchMoreImages, gridRef]);
 
   // Cell component for react-window Grid
-  const CellComponent = ({ columnIndex, rowIndex, style, images, columnCount }) => {
+  const CellComponent = ({ columnIndex, rowIndex, style, data }) => {
+    const { images, columnCount } = data;
+
     const index = rowIndex * columnCount + columnIndex;
     if (index >= images.length) {
       return null; // Render nothing if the cell is outside the range of items
@@ -436,47 +444,60 @@ function ImageGrid({
     );
   };
 
+  const handleItemsRendered = useCallback(({ 
+      visibleRowStartIndex, 
+      visibleRowStopIndex, 
+      overscanRowStopIndex 
+  }) => {
+    // This callback now closes over the latest state values because of its dependency array.
+    // This is the correct pattern to avoid race conditions with refs.
+    if (!hasMore || isFetchingMore || rowCount === 0) {
+      return;
+    }
+
+    // Fetch when the user is within 5 rows of the end of the list.
+    if (overscanRowStopIndex >= rowCount - 5) {
+      fetchMoreImages();
+    }
+    // By including rowCount, hasMore, and isFetchingMore, we ensure this function
+    // always has the latest data and prevents the race condition.
+  }, [fetchMoreImages, hasMore, isFetchingMore, rowCount]);
+
+  // Memoize itemData to prevent unnecessary re-renders of the Grid.
+  // This must be called unconditionally at the top level of the component.
+  const itemData = useMemo(() => ({ images, columnCount }), [images, columnCount]);
+
   return (
     <>
       <div ref={containerRef} className={`image-grid-container ${isSelectMode ? 'select-mode' : ''}`}>
-        {gridSize.width > 0 && gridSize.height > 0 && images.length > 0 && (() => {
-          // Convert gap from rem to pixels once. Assuming 1rem = 16px as a base.
-          const gap = 0.5 * parseFloat(getComputedStyle(document.documentElement).fontSize);
-          const baseThumbSize = settings.thumb_size / 2;
-
-          // Calculate how many columns can fit
-          const columnCount = Math.max(1, Math.floor((gridSize.width + gap) / (baseThumbSize + gap)));
-
-          // Calculate the actual width of each column to fill the container perfectly
-          const columnWidth = (gridSize.width - (columnCount - 1) * gap) / columnCount;
-          const rowHeight = columnWidth; // Keep thumbnails square
-
-          const rowCount = Math.ceil(images.length / columnCount);
-
-          return (
-            <Grid
-              cellComponent={CellComponent}
-              cellProps={{images, columnCount}}
-              ref={gridRef}
-              className="image-grid"
-              columnCount={columnCount}
-              columnWidth={columnWidth}
-              rowCount={rowCount}
-              rowHeight={rowHeight}
-              overscanCount="3"
-              onScroll={handleScroll}
-            ></Grid>
-          );
-        })()}
-
-        {imagesError && <p>{imagesError}</p>}
-
-        {imagesLoading && images.length === 0 && !imagesError && <p>Loading images...</p>}
-
-        {isFetchingMore && <p>Loading more images...</p>}
-
+        {gridSize.width > 0 && gridSize.height > 0 && columnCount > 0 ? (
+          <Grid
+            // The key should only change if the grid's fundamental layout changes (e.g., column count).
+            // It should NOT change when rowCount increases due to new data.
+            key={`${gridSize.width}-${columnCount}`}
+            ref={gridRef}
+            className="image-grid"
+            columnCount={columnCount}
+            columnWidth={columnWidth}
+            rowCount={rowCount} // rowCount can be 0, react-window handles this
+            rowHeight={rowHeight}
+            overscanColumnCount={3}
+            overscanRowCount={3}
+            height={gridSize.height}
+            width={gridSize.width}
+            itemData={itemData}
+            children={CellComponent}
+            onItemsRendered={handleItemsRendered}
+          />
+        ) : (
+          // Display initializing message if grid is not ready, but not if it's just loading initial images.
+          !imagesLoading && <p className="grid-status-message">Initializing grid...</p>
+        )}
+        {imagesError && <p className="grid-status-message error-message">{imagesError.message}</p>}
+        {imagesLoading && images.length === 0 && !imagesError && <p className="grid-status-message loading-message">Loading images...</p>}
+        {isFetchingMore && <p className="grid-status-message loading-more-message">Loading more images...</p>}
         {!imagesLoading && !isFetchingMore && images.length === 0 && !imagesError && (
-          <p>No images found. Add some to your configured paths and run the scanner!</p>
+          <p className="grid-status-message no-images-message">No images found. Add some to your configured paths and run the scanner!</p>
         )}
       </div>
 
