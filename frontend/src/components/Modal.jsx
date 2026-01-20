@@ -31,7 +31,7 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
     const [navigationDirection, setNavigationDirection] = useState(0);
     const currentIndex = (modalType === 'image' && currentImage && images) ? images.findIndex(img => img.id === currentImage.id) : -1;
     const canGoPrev = currentIndex > 0;    
-    const canGoNext = (currentIndex !== -1 && currentIndex < images.length - 1) || (currentIndex === images.length - 1 && hasMore);
+    const canGoNext = images ? ((currentIndex !== -1 && currentIndex < images.length - 1) || (currentIndex === images.length - 1 && hasMore)) : false;
 
     const getAnimationBounds = () => {
         // On exit, we need the bounds of the CURRENT image in the grid, not the original one.
