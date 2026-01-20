@@ -76,7 +76,7 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
             y: getAnimationBounds() ? getAnimationBounds().y + getAnimationBounds().height / 2 - window.innerHeight / 2 : 0,
             transition: {
                 type: "spring",
-                stiffness: 200,
+                stiffness: 400,
                 damping: 30,
             },
         },
@@ -87,7 +87,7 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
             y: 0,
             transition: {
                 type: "spring",
-                stiffness: 200,
+                stiffness:400,
                 damping: 30,
             },
         },
