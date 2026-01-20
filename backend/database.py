@@ -29,14 +29,31 @@ def get_db():
 # --- SQLite Custom REGEXP Function ---
 # This function defines the regex logic
 def regexp(expression, item):
-    """Custom REGEXP function for SQLite."""
-    if item is None:
+    try:
+        if expression is None or item is None:
+            return False
+        # Ensure both are strings to prevent crashes on corrupted/unexpected data
+        return re.search(str(expression), str(item)) is not None
+    except Exception:
+        # If the regex pattern is invalid or something else goes wrong, 
+        # just return False instead of crashing the whole query.
         return False
-    match = re.search(expression, item)
-    return match is not None
 
-# Register the custom REGEXP function for all SQLite connections
-# This will be called whenever SQLAlchemy establishes a new connection to the SQLite DB
 @event.listens_for(engine, "connect")
-def _set_sqlite_regexp(dbapi_connection, connection_record):
+def configure_sqlite_connection(dbapi_connection, connection_record):
+    # Register Regex function
     dbapi_connection.create_function("regexp", 2, regexp)
+    
+    # Enable Write-Ahead Logging (WAL)
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    
+    # Set a Busy Timeout
+    # If the Initial Scan thread is writing, the API thread will wait 
+    # 5 seconds for the lock to clear instead of crashing.
+    cursor.execute("PRAGMA busy_timeout=5000")
+    
+    # Synchronous Normal
+    # In WAL mode, 'NORMAL' is faster and still very safe.
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.close()

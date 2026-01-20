@@ -6,3 +6,5 @@ instance
 config.json
 sql_app.db
 user_config.ini
+backend/sql_app.db-shm
+backend/sql_app.db-wal
