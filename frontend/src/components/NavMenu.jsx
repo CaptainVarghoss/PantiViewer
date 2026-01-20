@@ -1,12 +1,7 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 import { useAuth } from '../context/AuthContext';
 
 function NavMenuBar({
-    navOpen,
-    setNavOpen,
-    isSelectMode,
-    setIsSelectMode,
-    onExitSelectMode,
     currentView,
     setCurrentView,
     trashCount,
