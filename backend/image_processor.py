@@ -356,14 +356,17 @@ def generate_thumbnail_in_background(
     original_filepath: str,
     loop: Optional[asyncio.AbstractEventLoop] = None, # Add loop parameter
 ):
-    thread_db = database.SessionLocal() # This session is for this background thread
+    # Use a short-lived session to get settings
+    thumb_size = config.THUMBNAIL_SIZE
     try:
-        thumb_size_setting = thread_db.query(models.Setting).filter_by(name='thumb_size').first()
-        # Fallback to config if setting is not in DB
-        thumb_size = config.THUMBNAIL_SIZE
-        if thumb_size_setting and thumb_size_setting.value:
-            thumb_size = int(thumb_size_setting.value)
+        with database.SessionLocal() as db:
+            thumb_size_setting = db.query(models.Setting).filter_by(name='thumb_size').first()
+            if thumb_size_setting and thumb_size_setting.value:
+                thumb_size = int(thumb_size_setting.value)
+    except Exception as e:
+        print(f"Background: Error fetching settings for image ID {image_id}: {e}")
 
+    try:
         generate_thumbnail(
             image_id=image_id,
             source_filepath=original_filepath,
@@ -371,25 +374,19 @@ def generate_thumbnail_in_background(
             thumb_size=thumb_size
         )
         
-        # Fetch the full image object to send to the frontend
-        db_image_location = thread_db.query(models.ImageLocation).options(
-            joinedload(models.ImageLocation.content).joinedload(models.ImageContent.tags)
-        ).filter_by(id=image_id).first()
+        # Notify frontend via WebSocket
+        if loop:
+            with database.SessionLocal() as db:
+                # Efficiently fetch just the admin_only flag by joining tables
+                row = db.query(models.ImagePath.admin_only).select_from(models.ImageLocation)\
+                    .outerjoin(models.ImagePath, models.ImageLocation.path == models.ImagePath.path)\
+                    .filter(models.ImageLocation.id == image_id).first()
 
-        if db_image_location:
-            # Notify frontend via WebSocket that a thumbnail has been generated
-            # This can be simplified to just a refresh message. The client will refetch
-            # and the thumbnail URL will resolve correctly on the next render.
-            # Determine who to send the message to based on the image's path visibility
-            image_path_entry = thread_db.query(models.ImagePath).filter_by(path=db_image_location.path).first()
-            is_admin_only = image_path_entry.admin_only if image_path_entry else False
-
-            if loop:
-                asyncio.run_coroutine_threadsafe(manager.schedule_refresh_broadcast(admin_only=is_admin_only), loop)
+                if row is not None:
+                    is_admin_only = row[0] if row[0] is not None else False
+                    asyncio.run_coroutine_threadsafe(manager.schedule_refresh_broadcast(admin_only=is_admin_only), loop)
     except Exception as e:
         print(f"Background: Error generating thumbnail for image ID {image_id}: {e}")
-    finally:
-        thread_db.close()
 
 def generate_thumbnail(
     image_id: int,
@@ -482,10 +479,9 @@ def generate_preview_in_background(
     original_filepath: str,
     preview_size: int,
 ):
-    thread_db = database.SessionLocal() # This session is for this background thread
     try:
         print(f"Background: Starting preview generation for image ID {image_id}, checksum {image_checksum}")
-        image_processor.generate_preview(
+        generate_preview(
             source_filepath=original_filepath,
             output_filename_base=image_checksum,
             preview_size=preview_size
@@ -493,8 +489,6 @@ def generate_preview_in_background(
         print(f"Background: Finished preview generation for image ID {image_id}")
     except Exception as e:
         print(f"Background: Error generating preview for image ID {image_id}: {e}")
-    finally:
-        thread_db.close()
 
 # FIX THIS
 # Functions were split for thumbnails and previews.
