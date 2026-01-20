@@ -40,7 +40,6 @@ function ImageGrid({
       if (entries && entries.length > 0) {
         const { width, height } = entries[0].contentRect;
         setGridSize({ width, height });
-        console.log(width, height)
       }
     });
 
