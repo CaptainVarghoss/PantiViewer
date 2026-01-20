@@ -15,6 +15,8 @@ import config
 import schemas
 from websocket_manager import manager
 
+observer = None
+
 def get_watched_paths(db: Session) -> List[str]:
     """Fetches all directory paths from the ImagePath table."""
     print("File Watcher: Fetching paths to watch from database.")
@@ -143,18 +145,35 @@ class ImageChangeEventHandler(FileSystemEventHandler):
 
 
 def start_file_watcher(loop: asyncio.AbstractEventLoop):
-    # This function runs in a separate thread and monitors file system changes.
+    """Starts the file watcher in a background thread."""
+    global observer
+    if observer is not None:
+        print("File Watcher: Already running.")
+        return
     
-    print("File watcher thread started.")
+    print("File watcher starting...")
     db = database.SessionLocal()
     try:
-        paths_to_watch = get_watched_paths(db)
+        all_paths = get_watched_paths(db)
     finally:
         db.close()
 
-    if not paths_to_watch:
+    if not all_paths:
         print("File Watcher: No paths configured to watch.")
         return
+
+    # --- OPTIMIZATION ---
+    # Reduce redundant watches by finding only the top-level directories.
+    # For example, if we have ['/a/b', '/a/b/c'], we only need to watch '/a/b' recursively.
+    
+    # Sort paths to ensure parent directories come before their children.
+    all_paths.sort()
+    
+    paths_to_watch = []
+    for path in all_paths:
+        # Check if the current path is a sub-directory of a path we've already decided to watch.
+        if not any(path.startswith(p.rstrip(os.sep) + os.sep) for p in paths_to_watch):
+            paths_to_watch.append(path)
 
     event_handler = ImageChangeEventHandler(loop)
     observer = Observer()
@@ -167,6 +186,14 @@ def start_file_watcher(loop: asyncio.AbstractEventLoop):
             print(f"File Watcher: Path '{path}' does not exist. Skipping.")
 
     observer.start()
-    print("File watcher is running.")
-    observer.join() # This will block until the observer is stopped.
-    print("File watcher has stopped.")
+    print(f"File watcher is running in background, monitoring {len(paths_to_watch)} top-level path(s).")
+
+def stop_file_watcher():
+    """Stops the file watcher thread safely."""
+    global observer
+    if observer:
+        print("File Watcher: Stopping...")
+        observer.stop()
+        observer.join()
+        observer = None
+        print("File Watcher: Stopped.")

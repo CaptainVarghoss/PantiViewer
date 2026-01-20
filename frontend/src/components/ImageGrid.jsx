@@ -12,6 +12,38 @@ import { useFilters } from '../context/FilterContext';
 import { FixedSizeGrid as Grid } from 'react-window';
 
 /**
+ * Cell component for react-window Grid.
+ * Defined outside the main component to maintain a stable identity across renders.
+ * This prevents the Grid from unmounting and remounting cells on every render,
+ * which can cause performance issues and network request floods.
+ */
+const CellComponent = ({ columnIndex, rowIndex, style, data }) => {
+  const { images, columnCount, selectedImages, focusedImageId, handleImageClick, handleContextMenu } = data;
+
+  const index = rowIndex * columnCount + columnIndex;
+  if (index >= images.length) {
+    return null; // Render nothing if the cell is outside the range of items
+  }
+  const image = images[index];
+
+  return (
+    <div className="image-card-outer" style={style}>
+      <div
+        key={image.id}
+        data-image-id={image.id}
+        className={`btn-base btn-primary image-card ${selectedImages.has(image.id) ? 'selected' : ''} ${focusedImageId === image.id ? 'focused' : ''}`}
+        onClick={(e) => handleImageClick(e, image)}
+      >
+        <ImageCard
+          image={image}
+          onContextMenu={(e) => handleContextMenu(e, image)}
+          refreshKey={image.refreshKey} />
+      </div>
+    </div>
+  );
+};
+
+/**
  * Component to display the image gallery with infinite scrolling using cursor-based pagination.
  * Fetches image data from the backend in pages and appends them.
  */
@@ -153,7 +185,9 @@ function ImageGrid({
     queryKey,
     hasMore,
     fetchMoreImages,
-    setFocusedImageId
+    setFocusedImageId,
+    setContextMenu,
+    selectedImages
   };
 
   const handleImageClick = useCallback(async (event, image) => {
@@ -209,8 +243,10 @@ function ImageGrid({
   }, []); // Now has a stable identity
 
   // Handle right-click event on a thumbnail
-  const handleContextMenu = (event, thumbnail) => {
+  const handleContextMenu = useCallback((event, thumbnail) => {
     event.preventDefault(); // Prevent default browser context menu
+    const { setContextMenu, setFocusedImageId, isSelectMode, selectedImages, setSelectedImages } = callbackStateRef.current;
+
     setContextMenu({
         isVisible: true,
         x: event.clientX,
@@ -230,7 +266,7 @@ function ImageGrid({
         return newSelected;
       });
     }
-  };
+  }, []);
 
   // Close the context menu
   const handleCloseContextMenu = useCallback(() => {
@@ -438,33 +474,6 @@ function ImageGrid({
     setFocusedImageId: setFocusedImageId,
   });
 
-  // Cell component for react-window Grid
-  const CellComponent = ({ columnIndex, rowIndex, style, data }) => {
-    const { images, columnCount } = data;
-
-    const index = rowIndex * columnCount + columnIndex;
-    if (index >= images.length) {
-      return null; // Render nothing if the cell is outside the range of items
-    }
-    const image = images[index];
-
-    return (
-      <div className="image-card-outer" style={style}>
-        <div
-          key={image.id}
-          data-image-id={image.id}
-          className={`btn-base btn-primary image-card ${selectedImages.has(image.id) ? 'selected' : ''} ${focusedImageId === image.id ? 'focused' : ''}`}
-          onClick={(e) => handleImageClick(e, image)}
-        >
-          <ImageCard
-            image={image}
-            onContextMenu={(e) => handleContextMenu(e, image)}
-            refreshKey={image.refreshKey} />
-        </div>
-      </div>
-    );
-  };
-
   const handleItemsRendered = useCallback(({ 
       visibleRowStartIndex, 
       visibleRowStopIndex, 
@@ -486,15 +495,20 @@ function ImageGrid({
 
   // Memoize itemData to prevent unnecessary re-renders of the Grid.
   // This must be called unconditionally at the top level of the component.
-  const itemData = useMemo(() => ({ images, columnCount }), [images, columnCount]);
+  const itemData = useMemo(() => ({
+    images,
+    columnCount,
+    selectedImages,
+    focusedImageId,
+    handleImageClick,
+    handleContextMenu
+  }), [images, columnCount, selectedImages, focusedImageId, handleImageClick, handleContextMenu]);
 
   return (
     <>
       <div ref={containerRef} className={`image-grid-container ${isSelectMode ? 'select-mode' : ''}`}>
         {gridSize.width > 0 && gridSize.height > 0 && columnCount > 0 ? (
           <Grid
-            // The key must be stable as long as the grid's fundamental layout is the same.
-            key={`image-grid-${columnCount}`}
             ref={gridRef}
             className="image-grid"
             columnCount={columnCount}

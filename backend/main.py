@@ -14,7 +14,7 @@ import database
 import image_processor
 import auth
 from websocket_manager import manager
-from file_watcher import start_file_watcher
+from file_watcher import start_file_watcher, stop_file_watcher
 
 # Import APIRouters
 from routes import auth_routes
@@ -180,6 +180,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown Events
     print("Application shutdown initiated.")
+    stop_file_watcher()
 
 
 # --- Initialize FastAPI app with the lifespan context manager ---

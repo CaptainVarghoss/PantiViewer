@@ -36,6 +36,18 @@ def generate_default_config():
         'SECRET_KEY': 'your-super-secret-key-replace-me'
     }
 
+    # --- Database Section ---
+    default_config['Database'] = {
+        '# Database connection string.': None,
+        '# Leave empty to use the default local SQLite database.': None,
+        '# Example: postgresql://user:password@localhost/dbname': None,
+        'SQLALCHEMY_DATABASE_URL': '',
+        '#': None,
+        '# Optional: Custom path for the SQLite database file.': None,
+        '# Used if SQLALCHEMY_DATABASE_URL is not set.': None,
+        'SQLITE_DB_PATH': ''
+    }
+
     # --- Media Section ---
     default_config['Media'] = {
         '# Thumbnail and preview base size.': None,
@@ -47,7 +59,7 @@ def generate_default_config():
     }
 
     with open(USER_CONFIG_FILE, 'w') as configfile:
-        configfile.write("# PANTI User Configuration File\n")
+        configfile.write("# Panti Viewer User Configuration File\n")
         configfile.write("# This file is for user-specific settings. It overrides the application defaults.\n")
         configfile.write("# Environment variables will override settings in this file.\n\n")
         default_config.write(configfile)
@@ -99,9 +111,19 @@ cors_from_env = os.getenv("CORS_ALLOWED_ORIGINS", cors_from_config)
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_from_env.split(',')]
 
 # --- Database Configuration ---
-DATABASE_URL = f"sqlite:///{CURRENT_DIR / 'sql_app.db'}"
-SQLALCHEMY_DATABASE_URL = DATABASE_URL
-SQLALCHEMY_CONNECT_ARGS = {"check_same_thread": False}
+database_url_from_config = config.get('Database', 'SQLALCHEMY_DATABASE_URL', fallback='')
+sqlite_db_path_from_config = config.get('Database', 'SQLITE_DB_PATH', fallback='')
+
+if database_url_from_config:
+    final_database_url = database_url_from_config
+elif sqlite_db_path_from_config:
+    final_database_url = f"sqlite:///{sqlite_db_path_from_config}"
+else:
+    final_database_url = f"sqlite:///{CURRENT_DIR / 'sql_app.db'}"
+
+SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL", final_database_url)
+DATABASE_URL = SQLALCHEMY_DATABASE_URL
+SQLALCHEMY_CONNECT_ARGS = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
 
 
 # --- Media Configuration ---

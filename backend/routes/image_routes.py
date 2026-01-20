@@ -6,6 +6,7 @@ from typing import List, Optional
 from pathlib import Path
 from datetime import datetime
 import os, json, threading, mimetypes, asyncio
+import concurrent.futures
 from search_constructor import generate_image_search_filter
 from websocket_manager import manager # Import the WebSocket manager
 
@@ -17,6 +18,27 @@ import config
 import image_processor
 
 router = APIRouter()
+
+# --- Background Task Management ---
+
+# Global executor to limit thumbnail generation threads to prevent resource exhaustion.
+thumbnail_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+processing_thumbnails = set()
+processing_lock = threading.Lock()
+
+def _run_thumbnail_generation(image_id, content_hash, filepath, loop):
+    try:
+        image_processor.generate_thumbnail_in_background(image_id, content_hash, filepath, loop)
+    finally:
+        with processing_lock:
+            processing_thumbnails.discard(image_id)
+
+def trigger_thumbnail_generation_task(image_id, content_hash, filepath, loop):
+    with processing_lock:
+        if image_id in processing_thumbnails:
+            return
+        processing_thumbnails.add(image_id)
+    thumbnail_executor.submit(_run_thumbnail_generation, image_id, content_hash, filepath, loop)
 
 # --- Image Endpoints ---
 
@@ -48,12 +70,7 @@ async def get_thumbnail(image_id: int, db: Session = Depends(database.get_db)):
 
         if original_filepath and Path(original_filepath).is_file():
             loop = asyncio.get_running_loop()
-            thread = threading.Thread(
-                target=image_processor.generate_thumbnail_in_background,
-                args=(image_id, db_image.content_hash, original_filepath, loop)
-            )
-            thread.daemon = True
-            thread.start()
+            trigger_thumbnail_generation_task(image_id, db_image.content_hash, original_filepath, loop)
         else:
             print(f"Could not trigger thumbnail generation for {db_image.filename}: original_filepath not found or invalid.")
 
@@ -152,12 +169,7 @@ def read_images(
             
             original_filepath = os.path.join(location.path, location.filename)
             if original_filepath and Path(original_filepath).is_file():
-                thread = threading.Thread(
-                    target=image_processor.generate_thumbnail_in_background,
-                    args=(location.id, img.content_hash, original_filepath, database.main_event_loop)
-                )
-                thread.daemon = True
-                thread.start()
+                trigger_thumbnail_generation_task(location.id, img.content_hash, original_filepath, database.main_event_loop)
             else:
                 print(f"Could not trigger thumbnail generation for {location.filename}: original_filepath not found or invalid.")
 
@@ -217,12 +229,7 @@ def read_image(
         original_filepath = os.path.join(location_image.path, location_image.filename)
         if original_filepath and Path(original_filepath).is_file():
             print(f"Thumbnail for {location_image.filename} (ID: {location_image.id}) not found. Triggering background generation.")
-            thread = threading.Thread(
-                target=image_processor.generate_thumbnail_in_background,
-                args=(location_image.id, db_image.content_hash, original_filepath, database.main_event_loop)
-            )
-            thread.daemon = True
-            thread.start()
+            trigger_thumbnail_generation_task(location_image.id, db_image.content_hash, original_filepath, database.main_event_loop)
         else:
             print(f"Could not trigger thumbnail generation for {location_image.filename}: original_filepath not found or invalid.")
 
