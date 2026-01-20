@@ -161,19 +161,26 @@ def read_images(
             else:
                 print(f"Could not trigger thumbnail generation for {location.filename}: original_filepath not found or invalid.")
 
-        if isinstance(img.exif_data, str):
+        # Handle EXIF data safely without modifying the DB object
+        exif_data = img.exif_data
+        if isinstance(exif_data, str):
             try:
-                img.exif_data = json.loads(img.exif_data)
+                exif_data = json.loads(exif_data)
             except json.JSONDecodeError:
-                img.exif_data = {} # Or handle error appropriately
+                exif_data = {}
         
+        # Create a dict from the image content, excluding exif_data to avoid conflict
+        img_data = img.__dict__.copy()
+        img_data.pop('exif_data', None)
+
         response_images.append(schemas.ImageResponse(
             id=location.id,
             filename=location.filename,
             path=location.path,
             thumbnail_url=thumbnail_url,
             thumbnail_missing=thumbnail_missing,
-            **img.__dict__
+            exif_data=exif_data,
+            **img_data
         ))
     return response_images
 

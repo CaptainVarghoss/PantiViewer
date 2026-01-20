@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import ImageGrid from './ImageGrid';
 import ConfirmationDialog from './ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 /**
  * A dedicated view for managing trashed (soft-deleted) images.
@@ -9,22 +10,32 @@ import { useAuth } from '../context/AuthContext';
  * restore them or empty the trash permanently.
  */
 function TrashView({
-    images,
-    setImages,
     webSocketMessage,
     setWebSocketMessage,
-    setTrashCount,
     setCurrentView,
     isSelectMode,
     setIsSelectMode,
     selectedImages,
-    setSelectedImages
+    setSelectedImages,
+    openModal
 }) {
     const { token, isAdmin } = useAuth();
+    const queryClient = useQueryClient();
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-    const [sortBy, setSortBy] = useState('date_created');
-    const [sortOrder, setSortOrder] = useState('desc');
-    const [filters] = useState([]); // Use state to create a stable empty array reference
+
+    // Fetch trash count to determine if button should be disabled
+    const { data: trashCount = 0 } = useQuery({
+        queryKey: ['trashCount', token],
+        queryFn: async () => {
+            const response = await fetch('/api/trash/info', {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (!response.ok) return 0;
+            const data = await response.json();
+            return data.trash_count;
+        },
+        enabled: !!token
+    });
 
     const handleEmptyTrash = async () => {
         console.log("Attempting to empty trash...");
@@ -41,9 +52,10 @@ function TrashView({
                 throw new Error(errorData.detail || 'Failed to empty trash');
             }
 
-            // On success, clear the images from the view and update counts
-            setImages([]);
-            setTrashCount(0);
+            // Invalidate queries to refresh UI
+            await queryClient.invalidateQueries({ queryKey: ['trashCount'] });
+            await queryClient.invalidateQueries({ queryKey: ['images'] });
+
             setCurrentView('grid'); // Go back to the main grid
             alert('Trash has been emptied successfully.');
 
@@ -68,7 +80,7 @@ function TrashView({
                     <button 
                         className="btn-base empty-trash-button" 
                         onClick={handleConfirmEmptyTrash}
-                        disabled={images.length === 0}
+                        disabled={trashCount === 0}
                     >
                         Empty Trash
                     </button>
@@ -76,12 +88,6 @@ function TrashView({
             </div>
 
             <ImageGrid
-                images={images}
-                setImages={setImages}
-                searchTerm={""}
-                sortBy={sortBy}
-                sortOrder={sortOrder}
-                filters={filters}
                 webSocketMessage={webSocketMessage}
                 setWebSocketMessage={setWebSocketMessage}
                 isSelectMode={isSelectMode}
@@ -89,6 +95,7 @@ function TrashView({
                 selectedImages={selectedImages}
                 setSelectedImages={setSelectedImages}
                 trash_only={true}
+                openModal={openModal}
                 contextMenuItems={[
                     { label: "Restore", action: "restore" },
                     { label: "Delete Permanently", action: "delete_permanent" },
@@ -100,7 +107,7 @@ function TrashView({
                 onClose={() => setShowConfirmDialog(false)}
                 onConfirm={handleEmptyTrash}
                 title="Permanently Empty Trash?"
-                message={`Are you sure you want to permanently delete all ${images.length} items in the trash? This action cannot be undone.`}
+                message={`Are you sure you want to permanently delete all items in the trash? This action cannot be undone.`}
                 confirmText="Empty Trash"
                 cancelText="Cancel"
                 confirmButtonColor="#dc2626" // Red for destructive action

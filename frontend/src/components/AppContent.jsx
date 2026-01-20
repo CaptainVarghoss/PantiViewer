@@ -145,6 +145,7 @@ export function AppContent({
             setIsSelectMode={setIsSelectMode}
             selectedImages={selectedImages}
             setSelectedImages={setSelectedImages}
+            openModal={openModal}
           />
         )}
         {currentView === 'folders' && (
