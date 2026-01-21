@@ -30,10 +30,7 @@ SUPPORTED_MEDIA_TYPES = {
 }
 
 def _sanitize_for_json(obj):
-    """
-    Recursively sanitize a dictionary or list to make it JSON serializable.
-    Converts bytes to a decoded string, replacing errors.
-    """
+    # Recursively sanitize a dictionary or list to make it JSON serializable.
     if isinstance(obj, dict):
         return {k: _sanitize_for_json(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -93,7 +90,7 @@ def add_file_to_db(
     image_path_entry: Optional[models.ImagePath] = None,
     loop: Optional[asyncio.AbstractEventLoop] = None
 ) -> Optional[models.ImageLocation]:
-    """Adds a single media file to the database using a provided session."""
+    # Adds a single media file to the database.
     root, f = os.path.split(file_full_path)
     existing_location = db.query(models.ImageLocation).where(models.ImageLocation.path == root, models.ImageLocation.filename == f).first()
 
@@ -199,10 +196,7 @@ def add_file_to_db(
             return None
 
 def cleanup_orphaned_image_locations(db: Session):
-    """
-    Finds and removes ImageLocation entries where the path does not exist in the ImagePath table.
-    This is useful for cleaning up the database when image paths are removed.
-    """
+    # Finds and removes ImageLocation entries where the path does not exist in the ImagePath table.
     print("Checking for orphaned ImageLocation entries...")
     
     # Create a subquery to select all valid paths from the ImagePath table.
@@ -223,10 +217,7 @@ def cleanup_orphaned_image_locations(db: Session):
         print("No orphaned ImageLocation entries found.")
 
 def check_and_apply_folder_tags(db: Session):
-    """
-    Ensures all images within a folder have the tags assigned to that folder.
-    This acts as a data integrity check.
-    """
+    # Ensures all images within a folder have the tags assigned to that folder.
     print("Checking for folder tag inheritance consistency...")
     folders_with_tags = db.query(models.ImagePath).options(joinedload(models.ImagePath.tags)).filter(models.ImagePath.tags.any()).all()
 
@@ -253,10 +244,7 @@ def check_and_apply_folder_tags(db: Session):
                 image_content.tags.extend(missing_tags)
 
 def scan_paths(db: Session):
-    """
-    Scans all configured paths for new subdirectories and files, committing each discovery immediately.
-    This function uses a provided database session to perform its operations.
-    """
+    # Scans all configured paths for new subdirectories and files, committing each discovery immediately.
     print(f"[{datetime.now().isoformat()}] Starting file scan...")
     scan_start = datetime.now()
 
