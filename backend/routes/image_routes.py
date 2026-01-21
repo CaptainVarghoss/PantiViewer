@@ -263,7 +263,7 @@ def read_image(
     )
 
 
-@router.put("/images/{image_id}/tags", response_model=schemas.ImageResponse)
+@router.put("/images/{image_id}/tags", status_code=status.HTTP_204_NO_CONTENT)
 def update_image(image_id: int, image_update: schemas.ImageTagUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     # Updates an existing image's tags.
     # Requires authentication.
@@ -286,20 +286,13 @@ def update_image(image_id: int, image_update: schemas.ImageTagUpdate, db: Sessio
                 raise HTTPException(status_code=400, detail=f"Tag with ID {tag_id} not found.")
     
     db.commit()
-    db.refresh(db_image)
 
     # After updating tags, broadcast a general refresh message
     if database.main_event_loop:
         message = {"type": "refresh_images", "reason": "tags_updated"}
         asyncio.run_coroutine_threadsafe(manager.broadcast_json(message), database.main_event_loop)
 
-    # Re-fetch the image with all its data to return the updated object
-    # This avoids calling read_image and creating a new dependency chain
-    updated_location_image = db.query(models.ImageLocation).options(
-        joinedload(models.ImageLocation.content).joinedload(models.ImageContent.tags)
-    ).filter(models.ImageLocation.id == image_id).first()
-
-    return updated_location_image
+    return
 
 @router.post("/images/tags/bulk-update", status_code=status.HTTP_204_NO_CONTENT)
 def bulk_update_image_tags(
