@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-import os, threading
+import os, threading, logging
 from contextlib import asynccontextmanager
 import asyncio
 from typing import Optional
@@ -30,6 +30,34 @@ from routes import filter_routes
 
 #from routes import user_filter_routes
 
+# Define a Log Filter to exclude specific endpoints and status codes from access logs
+class AccessLogFilter(logging.Filter):
+    def __init__(
+        self,
+        block_paths: list[str] = None,
+        block_status_codes: list[int] = None,
+        block_path_status: int = 200
+    ):
+        super().__init__()
+        self.block_paths = block_paths or []
+        self.block_status_codes = block_status_codes or []
+        self.block_path_status = block_path_status
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Uvicorn access logs typically pass args: (client_addr, method, full_path, http_version, status_code)
+        if record.args and len(record.args) >= 5:
+            route_path = str(record.args[2])
+            status_code = record.args[4]
+            
+            if status_code in self.block_status_codes:
+                return False
+            
+            if status_code == self.block_path_status:
+                for path in self.block_paths:
+                    if path in route_path:
+                        return False
+        return True
+
 # --- Application Lifespan Context Manager ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +65,14 @@ async def lifespan(app: FastAPI):
 
     # Startup Events
     print("Application startup initiated...")
+
+    # Filter out noise from uvicorn access logs
+    logging.getLogger("uvicorn.access").addFilter(AccessLogFilter(
+        block_paths=["/static_assets", "/api/images"],
+        block_status_codes=[304], # Filter out 304 Not Modified
+        block_path_status=200     # Filter out block_paths only if they return 200
+    ))
+
     print("Creating database tables if they don't exist...")
     # Store the main event loop in a globally accessible place
     database.main_event_loop = asyncio.get_running_loop()
