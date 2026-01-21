@@ -374,9 +374,16 @@ function ImageGrid({
       queryClient.invalidateQueries({ queryKey: queryKey });
     }
 
+    const hasBulkTagUpdate = webSocketMessage.some(msg => msg.type === 'refresh_images' && msg.reason === 'tags_updated_bulk');
+    if (hasBulkTagUpdate) {
+      setIsSelectMode(false);
+      setSelectedImages(new Set());
+      setContextMenu(prev => ({ ...prev, isVisible: false }));
+    }
+
     // Clear the message queue after processing.
     setWebSocketMessage([]);
-  }, [webSocketMessage, setWebSocketMessage, queryClient, queryKey]);
+  }, [webSocketMessage, setWebSocketMessage, queryClient, queryKey, setIsSelectMode, setSelectedImages]);
 
   // Wrapper for handleImageClick to be used by useGlobalHotkeys
   const handleImageOpen = useCallback((_event, imageToOpen) => {
