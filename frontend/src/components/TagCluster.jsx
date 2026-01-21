@@ -290,7 +290,7 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
 
     if (error) return <div ref={wrapperRef} className="tag-cluster-popup"><p className="error-text">{error}</p></div>;
 
-    const TagEditorContent = () => (
+    const tagEditorContent = (
         <div className="tag-cluster-content">
             {allTags.map(tag => {
                 const isActive = activeTagIds.has(tag.id);
@@ -333,10 +333,10 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
         </div>
     );
 
-    return isEmbedded ? <TagEditorContent /> : (
+    return isEmbedded ? tagEditorContent : (
         <div ref={wrapperRef} className="tag-cluster-popup">
             <button className="tag-cluster-close-btn" onClick={onClose} title="Close"><IoClose size={18} /></button>
-            <TagEditorContent />
+            {tagEditorContent}
         </div>
     );
 }

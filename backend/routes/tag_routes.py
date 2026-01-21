@@ -46,9 +46,11 @@ def read_tags(
             tags = tags.filter_by(admin_only=False)
 
     else:
-        location = db.query(models.ImageLocation).filter_by(id=imageId).first()
-        image = db.query(models.ImageContent).filter_by(content_hash=location.content_hash).first()
-        tags = image.tags
+        tags = db.query(models.Tag)\
+            .join(models.ImageContent.tags)\
+            .join(models.ImageLocation, models.ImageLocation.content_hash == models.ImageContent.content_hash)\
+            .filter(models.ImageLocation.id == imageId)\
+            .all()
 
     return tags
 
