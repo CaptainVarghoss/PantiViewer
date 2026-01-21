@@ -11,7 +11,8 @@ image_tags = Table(
     'image_tags',
     Base.metadata,
     Column('image_id', Integer, ForeignKey('image_content.content_id'), primary_key=True),
-    Column('tag_id', Integer, ForeignKey('tags.id'), primary_key=True)
+    Column('tag_id', Integer, ForeignKey('tags.id'), primary_key=True),
+    Index('idx_image_tags_tag_id', 'tag_id')
 )
 
 # Many-to-Many association table for ImagePaths and Tags

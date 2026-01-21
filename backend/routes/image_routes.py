@@ -96,7 +96,7 @@ def read_images(
     Accessible by all. Eager loads associated tags and includes paths to generated media.
     Triggers thumbnail generation if not found.
     """
-    query = db.query(models.ImageLocation).distinct()
+    query = db.query(models.ImageLocation)
     query = query.join(models.ImageContent, models.ImageLocation.content_hash == models.ImageContent.content_hash)
     query = query.outerjoin(models.ImagePath, models.ImagePath.path == models.ImageLocation.path)
     query = query.options(
@@ -111,6 +111,8 @@ def read_images(
     else:
         # If not viewing trash, filter out deleted items and apply search/filter criteria
         query = query.filter(models.ImageLocation.deleted == False)
+        if search_query or active_stages_json:
+            query = query.distinct()
         search_filter = generate_image_search_filter(search_terms=search_query, admin=current_user.admin, active_stages_json=active_stages_json, db=db)
         query = query.filter(search_filter)
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
@@ -62,4 +62,4 @@ const ImageCard = ({ image, onContextMenu }) => {
   );
 };
 
-export default ImageCard;
+export default memo(ImageCard);

@@ -36,7 +36,7 @@ const CellComponent = ({ columnIndex, rowIndex, style, data }) => {
       >
         <ImageCard
           image={image}
-          onContextMenu={(e) => handleContextMenu(e, image)}
+          onContextMenu={handleContextMenu}
           refreshKey={image.refreshKey} />
       </div>
     </div>
