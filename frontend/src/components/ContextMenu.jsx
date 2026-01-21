@@ -1,8 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import TagCluster from './TagCluster';
 
 // Reusable Context Menu Component
-const ContextMenu = ({ x, y, isOpen, onClose, thumbnailData, onMenuItemClick, menuItems, images, selectedImageIds }) => {
+const ContextMenu = ({ 
+  x, 
+  y, 
+  isOpen, 
+  onClose, 
+  thumbnailData, 
+  customItems, 
+  images, 
+  selectedImageIds, 
+  isSelectMode, 
+  trash_only, 
+  actions 
+}) => {
   const menuRef = useRef(null);
   const [showTagCluster, setShowTagCluster] = useState(false);
   const prevIsOpenRef = useRef(isOpen);
@@ -40,23 +52,81 @@ const ContextMenu = ({ x, y, isOpen, onClose, thumbnailData, onMenuItemClick, me
     };
   }, [isOpen, onClose, thumbnailData, images]);
 
+  const itemsToRender = useMemo(() => {
+    const count = selectedImageIds ? selectedImageIds.size : 0;
+
+    if (isSelectMode) {
+      if (trash_only) {
+        return [
+          { label: `Restore ${count} Selected`, action: "restore_selected" },
+          { label: `Edit Tags for ${count} Selected`, action: "edit_tags_selected" },
+          { label: `Delete ${count} Permanently`, action: "delete_permanent_selected" },
+        ];
+      } else {
+        const items = [
+          { label: `Delete ${count} Selected`, action: "delete_selected" },
+          { label: `Move ${count} Selected`, action: "move_selected" },
+        ];
+        if (count > 0) items.unshift({ label: `Edit Tags for ${count} Selected`, action: "edit_tags_selected" });
+        return items;
+      }
+    } else if (customItems) {
+      return [{ label: "Select", action: "select" }, ...customItems];
+    } else {
+      return [
+        { label: "Select", action: "select" },
+        { label: "Edit Tags", action: "add_tag" },
+        { label: "Move", action: "move" },
+        { label: "Delete", action: "delete" },
+      ];
+    }
+  }, [isSelectMode, trash_only, selectedImageIds, customItems]);
+
   if (!isOpen) return null;
 
-  const defaultMenuItems = [
-    { label: "Select", action: "select" },
-    { label: "Move", action: "move" },
-    { label: "Delete", action: "delete" },
-  ];
-
-  const itemsToRender = menuItems || defaultMenuItems;
-
   const handleItemClick = (item) => {
-    if (item.action === 'add_tag') {
+    const action = item.action;
+    const data = thumbnailData || item;
+
+    if (action === 'add_tag' || action === 'edit_tags_selected') {
       setShowTagCluster(prev => !prev); // Toggle tag cluster visibility
-    } else if (item.action === 'edit_tags_selected') {
-      setShowTagCluster(prev => !prev); // Also use this for bulk edit
     } else {
-      onMenuItemClick(item.action, thumbnailData || item, itemsToRender);
+      if (actions) {
+        const { imageActions, setIsSelectMode, setSelectedImages } = actions;
+        switch (action) {
+          case 'select':
+            setIsSelectMode(true);
+            setSelectedImages(new Set([data.id]));
+            break;
+          case 'delete':
+            imageActions.markImageAsDeleted(data.id);
+            break;
+          case 'restore':
+            imageActions.restoreImage(data.id);
+            break;
+          case 'delete_permanent':
+            imageActions.deleteImagePermanently(data.id);
+            break;
+          case 'delete_selected':
+            imageActions.deleteSelectedImages();
+            break;
+          case 'move':
+            imageActions.moveSelectedImages(new Set([data.id]));
+            break;
+          case 'move_selected':
+            imageActions.moveSelectedImages();
+            break;
+          case 'restore_selected':
+            imageActions.restoreSelectedImages();
+            break;
+          case 'delete_permanent_selected':
+            imageActions.deleteSelectedPermanently();
+            break;
+          default:
+            console.warn(`Unhandled action: ${action}`);
+            break;
+        }
+      }
       onClose(); // Close menu for other actions
     }
   };
@@ -69,13 +139,18 @@ const ContextMenu = ({ x, y, isOpen, onClose, thumbnailData, onMenuItemClick, me
       style={{ top: y, left: x }}
     >
       {showTagCluster ? (
-        menuItems.find(item => item.action === 'edit_tags_selected') ? (
+        itemsToRender.find(item => item.action === 'edit_tags_selected') ? (
           <TagCluster.Popup
             type="image_tags_bulk"
             itemIds={selectedImageIds} // Pass the set of selected IDs
             onClose={() => {
               setShowTagCluster(false);
               onClose();
+              // Clear selection after bulk edit
+              if (actions && actions.setSelectedImages && actions.setIsSelectMode) {
+                actions.setSelectedImages(new Set());
+                actions.setIsSelectMode(false);
+              }
             }}
           />
         ) : (

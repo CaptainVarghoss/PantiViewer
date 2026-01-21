@@ -53,9 +53,7 @@ export const useImageActions = ({ selectedImages, setSelectedImages, setIsSelect
   // --- Define user-facing action functions ---
 
   const markImageAsDeleted = (imageId) => {
-    if (window.confirm("Are you sure you want to move this image to the trash?")) {
-      deleteMutation.mutate([imageId]);
-    }
+    deleteMutation.mutate([imageId]);
   };
 
   const restoreImage = (imageId) => {
@@ -63,19 +61,18 @@ export const useImageActions = ({ selectedImages, setSelectedImages, setIsSelect
   };
 
   const deleteImagePermanently = async (imageId) => {
-    // This API has its own confirmation dialog, so we call it directly
-    try {
-      await deleteImagePermanentlyApi(imageId, token);
-      onActionSuccess(); // Manually trigger success handling
-    } catch (error) {
-      alert(`Action failed: ${error.message}`);
+    if (window.confirm("Are you sure you want to permanently delete this image? This cannot be undone.")) {
+      try {
+        await deleteImagePermanentlyApi(imageId, token);
+        onActionSuccess(); // Manually trigger success handling
+      } catch (error) {
+        alert(`Action failed: ${error.message}`);
+      }
     }
   };
 
   const deleteSelectedImages = async () => {
-    if (window.confirm(`Are you sure you want to move ${selectedImages.size} images to the trash?`)) {
-      deleteMutation.mutate(Array.from(selectedImages));
-    }
+    deleteMutation.mutate(Array.from(selectedImages));
   };
 
   const restoreSelectedImages = async () => {
@@ -83,8 +80,9 @@ export const useImageActions = ({ selectedImages, setSelectedImages, setIsSelect
   };
 
   const deleteSelectedPermanently = async () => {
-    // The API call includes a window.confirm dialog
-    permanentDeleteMutation.mutate(Array.from(selectedImages));
+    if (window.confirm(`Are you sure you want to permanently delete ${selectedImages.size} images? This cannot be undone.`)) {
+      permanentDeleteMutation.mutate(Array.from(selectedImages));
+    }
   };
 
   const moveSelectedImages = (imageIds = selectedImages) => {

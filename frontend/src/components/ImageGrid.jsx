@@ -134,7 +134,7 @@ function ImageGrid({
       const lastImage = lastPage[lastPage.length - 1];
 
       return {
-        last_sort_value: lastImage.date_created,
+        last_sort_value: lastImage.sort_value !== undefined ? lastImage.sort_value : lastImage.date_created,
         last_content_id: lastImage.content_id,
         last_location_id: lastImage.id,
       };
@@ -283,86 +283,6 @@ function ImageGrid({
   }, [setContextMenu]);
 
   const imageActions = useImageActions({ selectedImages, setSelectedImages, setIsSelectMode, openModal });
-
-  // Handle click on a context menu item
-  const handleMenuItemClick = (action, data) => {
-      console.log(`Action: ${action} on Thumbnail ID: ${data.id}`);
-
-      // Implement specific logic based on the action
-      switch (action) {
-        case 'select':
-            setIsSelectMode(true);
-            setSelectedImages(new Set([data.id]));
-            break;
-        case 'delete':
-            imageActions.markImageAsDeleted(data.id);
-            break;
-        case 'restore':
-            imageActions.restoreImage(data.id);
-            break;
-        case 'delete_permanent':
-            imageActions.deleteImagePermanently(data.id);
-            break;
-        case 'delete_selected':
-            imageActions.deleteSelectedImages();
-            break;
-        case 'move':
-            imageActions.moveSelectedImages(new Set([data.id]));
-            break;
-        case 'move_selected':
-            imageActions.moveSelectedImages();
-            break;
-        case 'restore_selected':
-            imageActions.restoreSelectedImages();
-            break;
-        case 'delete_permanent_selected':
-            imageActions.deleteSelectedPermanently();
-            break;
-        case 'edit_tags_selected':
-            openModal('editTags', {
-                imageIds: Array.from(selectedImages),
-                // When the modal closes, clear the selection and exit select mode.
-                // This is crucial for when tags are changed and images disappear from the current view.
-                onClose: () => {
-                    setSelectedImages(new Set());
-                    setIsSelectMode(false);
-                }
-            });
-            break;
-        default:
-            break;
-      }
-  };
-
-  // Determine which menu items to show based on the current mode
-  let activeContextMenuItems;
-  if (isSelectMode) {
-    if (trash_only) {
-        activeContextMenuItems = [
-            { label: `Restore ${selectedImages.size} Selected`, action: "restore_selected" },
-            { label: `Edit Tags for ${selectedImages.size} Selected`, action: "edit_tags_selected" },
-            { label: `Delete ${selectedImages.size} Permanently`, action: "delete_permanent_selected" },
-        ];
-    } else {
-        activeContextMenuItems = [
-            { label: `Delete ${selectedImages.size} Selected`, action: "delete_selected" },
-            { label: `Move ${selectedImages.size} Selected`, action: "move_selected" },
-        ];
-        if (selectedImages.size > 0) activeContextMenuItems.unshift({ label: `Edit Tags for ${selectedImages.size} Selected`, action: "edit_tags_selected" });
-    }
-  } else {
-    // Not in select mode, use single-item actions
-    if (contextMenuItems) { // If custom items are passed (like in TrashView)
-        activeContextMenuItems = [{ label: "Select", action: "select" }, ...contextMenuItems];
-    } else { // Default for main grid
-        activeContextMenuItems = [
-            { label: "Select", action: "select" },
-            { label: "Edit Tags", action: "add_tag" },
-            { label: "Move", action: "move" },
-            { label: "Delete", action: "delete" }
-        ];
-    }
-  }
 
   useEffect(() => {
     if (!isSelectMode) {
@@ -548,11 +468,12 @@ function ImageGrid({
         y={contextMenu.y}
         onClose={handleCloseContextMenu}
         thumbnailData={contextMenu.thumbnailData}
-        onMenuItemClick={handleMenuItemClick}
-        setContextMenu={setContextMenu}
-        menuItems={activeContextMenuItems}
+        customItems={contextMenuItems}
         images={images}
         selectedImageIds={selectedImages}
+        isSelectMode={isSelectMode}
+        trash_only={trash_only}
+        actions={{ imageActions, setIsSelectMode, setSelectedImages, openModal }}
       />
 
     </>

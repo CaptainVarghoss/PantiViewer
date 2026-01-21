@@ -72,7 +72,7 @@ function TrashView({
     };
 
     return (
-        <div className="trash-view-container">
+        <div className="trash-view-container" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div className="trash-view-header">
                 <h1>Trash</h1>
                 <p>Images here are marked for deletion. You can restore them or empty the trash to permanently delete them.</p>
@@ -87,20 +87,22 @@ function TrashView({
                 )}
             </div>
 
-            <ImageGrid
-                webSocketMessage={webSocketMessage}
-                setWebSocketMessage={setWebSocketMessage}
-                isSelectMode={isSelectMode}
-                setIsSelectMode={setIsSelectMode}
-                selectedImages={selectedImages}
-                setSelectedImages={setSelectedImages}
-                trash_only={true}
-                openModal={openModal}
-                contextMenuItems={[
-                    { label: "Restore", action: "restore" },
-                    { label: "Delete Permanently", action: "delete_permanent" },
-                ]}
-            />
+            <div style={{ flex: 1, minHeight: 0 }}>
+                <ImageGrid
+                    webSocketMessage={webSocketMessage}
+                    setWebSocketMessage={setWebSocketMessage}
+                    isSelectMode={isSelectMode}
+                    setIsSelectMode={setIsSelectMode}
+                    selectedImages={selectedImages}
+                    setSelectedImages={setSelectedImages}
+                    trash_only={true}
+                    openModal={openModal}
+                    contextMenuItems={[
+                        { label: "Restore", action: "restore" },
+                        { label: "Delete Permanently", action: "delete_permanent" },
+                    ]}
+                />
+            </div>
 
             <ConfirmationDialog
                 isOpen={showConfirmDialog}
