@@ -195,7 +195,7 @@ def read_images(
             is_video=img.is_video,
             width=img.width,
             height=img.height,
-            tags=img.tags,
+            tags=list(img.tags),
             content_id=img.content_id
         ))
     return response_images
@@ -237,11 +237,12 @@ def read_image(
         else:
             print(f"Could not trigger thumbnail generation for {location_image.filename}: original_filepath not found or invalid.")
 
-    if isinstance(db_image.exif_data, str):
+    exif_data = db_image.exif_data
+    if isinstance(exif_data, str):
         try:
-            db_image.exif_data = json.loads(db_image.exif_data)
+            exif_data = json.loads(exif_data)
         except json.JSONDecodeError:
-            db_image.exif_data = {}
+            exif_data = {}
 
     return schemas.ImageResponse(
         id=location_image.id,
@@ -249,7 +250,7 @@ def read_image(
         path=location_image.path,
         thumbnail_url=thumbnail_url,
         thumbnail_missing=thumbnail_missing,
-        exif_data=db_image.exif_data,
+        exif_data=exif_data,
         # Explicitly map fields
         content_hash=db_image.content_hash,
         date_created=db_image.date_created,
@@ -257,7 +258,7 @@ def read_image(
         is_video=db_image.is_video,
         width=db_image.width,
         height=db_image.height,
-        tags=db_image.tags,
+        tags=list(db_image.tags),
         content_id=db_image.content_id
     )
 
