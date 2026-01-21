@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
-import TagCluster from './TagCluster';
+import { useAuth } from '../../context/AuthContext';
+import TagCluster from '../TagCluster';
 import { MdDelete } from "react-icons/md";
 
 /**

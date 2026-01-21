@@ -1,5 +1,5 @@
 import React from 'react';
-import useSettingsFormLogic from '../hooks/useSettingsFormLogic'; // Import the new hook
+import useSettingsFormLogic from '../../hooks/useSettingsFormLogic'; // Import the new hook
 
 /**
  * Component for managing global application settings.

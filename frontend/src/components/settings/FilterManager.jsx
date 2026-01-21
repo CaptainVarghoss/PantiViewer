@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import ConfirmationDialog from './ConfirmDialog';
-import { useAuth } from '../context/AuthContext';
-import { useFilters } from '../context/FilterContext';
+import ConfirmationDialog from '../ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
+import { useFilters } from '../../context/FilterContext';
 import { MdDelete } from "react-icons/md";
-import IconPicker from './IconPicker'; // Import the new component
-import TagCluster from './TagCluster';
+import IconPicker from '../IconPicker'; // Import the new component
+import TagCluster from '../TagCluster';
 import * as MdIcons from 'react-icons/md'; // Import all icons to render them
 
 /**

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import TagCluster from './TagCluster';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useHotkeyContext } from '../context/HotkeyContext';
-import Settings from './Settings'; // Import the new unified Settings component
+import Settings from './settings/Settings'; // Import the new unified Settings component
 
 /**
  * A unified modal component for displaying either an image with details or application settings.

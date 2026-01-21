@@ -1,6 +1,6 @@
 import React from 'react';
-import { useAuth } from '../context/AuthContext';
-import useSettingsFormLogic from '../hooks/useSettingsFormLogic';
+import { useAuth } from '../../context/AuthContext';
+import useSettingsFormLogic from '../../hooks/useSettingsFormLogic';
 
 /**
  * Component for managing device-specific user settings.

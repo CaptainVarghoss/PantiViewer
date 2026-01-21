@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
-import ConfirmationDialog from './ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
+import ConfirmationDialog from '../ConfirmDialog';
 import { MdDelete } from "react-icons/md";
 
 function UserManagement() {
