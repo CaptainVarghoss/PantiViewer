@@ -59,7 +59,7 @@ function ImageGrid({
   openModal
 }) {
   const { token, settings } = useAuth();
-  const { searchQuery } = useSearch();
+  const { searchTerm } = useSearch();
   const { filters } = useFilters();
   const queryClient = useQueryClient();
   const containerRef = useRef(null);
@@ -95,7 +95,7 @@ function ImageGrid({
     }, {});
   }, [filters]);
 
-  const queryKey = useMemo(() => ['images', { trash_only, searchQuery, activeStages: JSON.stringify(activeStages) }], [trash_only, searchQuery, activeStages]);
+  const queryKey = useMemo(() => ['images', { trash_only, searchTerm, activeStages: JSON.stringify(activeStages) }], [trash_only, searchTerm, activeStages]);
 
   const {
     data,
@@ -116,7 +116,7 @@ function ImageGrid({
 
       const queryString = new URLSearchParams(params);
 
-      if (searchQuery) queryString.set('search_query', searchQuery);
+      if (searchTerm) queryString.set('search_query', searchTerm);
       // Only send the filter parameter if there are active non-default filters.
       if (Object.keys(activeStages).length > 0) {
         queryString.set('active_stages_json', JSON.stringify(activeStages));
