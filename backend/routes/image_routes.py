@@ -180,10 +180,6 @@ def read_images(
             except json.JSONDecodeError:
                 exif_data = {}
         
-        # Create a dict from the image content, excluding exif_data to avoid conflict
-        img_data = img.__dict__.copy()
-        img_data.pop('exif_data', None)
-
         response_images.append(schemas.ImageResponse(
             id=location.id,
             filename=location.filename,
@@ -191,7 +187,16 @@ def read_images(
             thumbnail_url=thumbnail_url,
             thumbnail_missing=thumbnail_missing,
             exif_data=exif_data,
-            **img_data
+            # Explicitly map fields to avoid passing SQLAlchemy internal state (_sa_instance_state)
+            # to Pydantic, which can cause segfaults in threaded environments.
+            content_hash=img.content_hash,
+            date_created=img.date_created,
+            date_modified=img.date_modified,
+            is_video=img.is_video,
+            width=img.width,
+            height=img.height,
+            tags=img.tags,
+            content_id=img.content_id
         ))
     return response_images
 
@@ -244,7 +249,16 @@ def read_image(
         path=location_image.path,
         thumbnail_url=thumbnail_url,
         thumbnail_missing=thumbnail_missing,
-        **db_image.__dict__
+        exif_data=db_image.exif_data,
+        # Explicitly map fields
+        content_hash=db_image.content_hash,
+        date_created=db_image.date_created,
+        date_modified=db_image.date_modified,
+        is_video=db_image.is_video,
+        width=db_image.width,
+        height=db_image.height,
+        tags=db_image.tags,
+        content_id=db_image.content_id
     )
 
 
