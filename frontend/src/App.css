@@ -916,19 +916,19 @@ form .section-list .section-item .section-fields:nth-child(3) {
 }
 
 /* In select mode, all images are dimmed by default */
-.image-grid.select-mode .image-card, nav .select-mode {
+.image-grid-container.select-mode .image-card, nav .select-mode {
   filter: brightness(0.5);
   transition: filter 0.3s ease, transform 0.3s ease;
 }
 
 /* The visual selection indicator (border, shadow, scale) should still apply only to selected items */
-.image-grid.select-mode .image-card.selected {
+.image-grid-container.select-mode .image-card.selected {
   border-color: var(--accent-secondary);
   border-width: 0.2rem;
 }
 
 /* In select mode, selected images are brightened back to normal */
-.image-grid.select-mode .image-card.selected {
+.image-grid-container.select-mode .image-card.selected {
   filter: brightness(1.0);
 }
 

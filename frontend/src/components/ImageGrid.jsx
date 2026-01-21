@@ -56,7 +56,8 @@ function ImageGrid({
   setSelectedImages,
   trash_only = false,
   contextMenuItems,
-  openModal
+  openModal,
+  onImagesLoaded
 }) {
   const { token, settings } = useAuth();
   const { searchTerm } = useSearch();
@@ -141,6 +142,12 @@ function ImageGrid({
   });
 
   const images = useMemo(() => data?.pages.flatMap(page => page) ?? [], [data]);
+
+  useEffect(() => {
+    if (onImagesLoaded) {
+      onImagesLoaded(images);
+    }
+  }, [images, onImagesLoaded]);
 
   const [focusedImageId, setFocusedImageId] = useState(null);
 

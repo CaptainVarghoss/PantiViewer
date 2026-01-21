@@ -21,6 +21,7 @@ export function AppContent({
   const [webSocketMessage, setWebSocketMessage] = useState([]);
   const [selectedImages, setSelectedImages] = useState(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
+  const [currentImages, setCurrentImages] = useState([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null);
@@ -84,6 +85,7 @@ export function AppContent({
     if (currentView !== view) {
       setIsSelectMode(false);
       setSelectedImages(new Set());
+      setCurrentImages([]);
     }
     setCurrentView(view);
   };
@@ -121,6 +123,7 @@ export function AppContent({
           selectedImages={selectedImages}
           setSelectedImages={setSelectedImages}
           openModal={openModal}
+          images={currentImages}
         />
         <ConnectionStatus />
       </header>
@@ -134,6 +137,7 @@ export function AppContent({
             selectedImages={selectedImages}
             setSelectedImages={setSelectedImages}
             openModal={openModal}
+            onImagesLoaded={setCurrentImages}
           />
         )}
         {currentView === 'trash' && (
@@ -146,6 +150,7 @@ export function AppContent({
             selectedImages={selectedImages}
             setSelectedImages={setSelectedImages}
             openModal={openModal}
+            onImagesLoaded={setCurrentImages}
           />
         )}
         {currentView === 'folders' && (
@@ -165,6 +170,7 @@ export function AppContent({
                 selectedImages={selectedImages}
                 setSelectedImages={setSelectedImages}
                 openModal={openModal}
+                onImagesLoaded={setCurrentImages}
               />
             </div>
           </div>
