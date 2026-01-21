@@ -127,7 +127,7 @@ const ContextMenu = ({
             break;
         }
       }
-      onClose(); // Close menu for other actions
+      onClose();
     }
   };
 
@@ -142,11 +142,10 @@ const ContextMenu = ({
         itemsToRender.find(item => item.action === 'edit_tags_selected') ? (
           <TagCluster.Popup
             type="image_tags_bulk"
-            itemIds={selectedImageIds} // Pass the set of selected IDs
+            itemIds={selectedImageIds}
             onClose={() => {
               setShowTagCluster(false);
               onClose();
-              // Clear selection after bulk edit
               if (actions && actions.setSelectedImages && actions.setIsSelectMode) {
                 actions.setSelectedImages(new Set());
                 actions.setIsSelectMode(false);
@@ -159,7 +158,7 @@ const ContextMenu = ({
             itemId={thumbnailData.id}
             onClose={() => {
               setShowTagCluster(false);
-              onClose(); // Also close the main context menu
+              onClose();
             }}
           />
         )
