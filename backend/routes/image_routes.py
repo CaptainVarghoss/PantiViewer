@@ -43,7 +43,7 @@ def trigger_thumbnail_generation_task(image_id, content_hash, filepath, loop):
 # --- Image Endpoints ---
 
 @router.get("/thumbnails/{image_id}", response_class=FileResponse)
-async def get_thumbnail(image_id: int, db: Session = Depends(database.get_db)):
+def get_thumbnail(image_id: int, db: Session = Depends(database.get_db)):
     
     # Serves thumbnails. If a thumbnail doesn't exist, it triggers generation and returns a placeholder.
 
@@ -69,8 +69,7 @@ async def get_thumbnail(image_id: int, db: Session = Depends(database.get_db)):
             thumb_size = config_thumbnail_size
 
         if original_filepath and Path(original_filepath).is_file():
-            loop = asyncio.get_running_loop()
-            trigger_thumbnail_generation_task(image_id, db_image.content_hash, original_filepath, loop)
+            trigger_thumbnail_generation_task(image_id, db_image.content_hash, original_filepath, database.main_event_loop)
         else:
             print(f"Could not trigger thumbnail generation for {db_image.filename}: original_filepath not found or invalid.")
 
@@ -391,7 +390,7 @@ def mark_images_as_deleted_bulk(
     return
 
 @router.post("/images/move", status_code=status.HTTP_200_OK)
-async def move_images_bulk(
+def move_images_bulk(
     move_request: schemas.ImageMoveRequest,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
@@ -449,7 +448,11 @@ async def move_images_bulk(
             raise HTTPException(status_code=500, detail=f"Failed to move file '{location.filename}': {e}")
 
     db.commit()
-    await manager.broadcast_json({"type": "refresh_images", "reason": "images_moved"})
+    if database.main_event_loop:
+        asyncio.run_coroutine_threadsafe(
+            manager.broadcast_json({"type": "refresh_images", "reason": "images_moved"}),
+            database.main_event_loop
+        )
     return {"message": f"Successfully moved {len(locations_to_move)} images."}
 
 @router.post("/images/{image_id}/restore", status_code=status.HTTP_204_NO_CONTENT)
@@ -621,7 +624,7 @@ def permanently_delete_trashed_images(
     return
 
 @router.get("/images/original/{checksum}", response_class=FileResponse)
-async def get_original_image(
+def get_original_image(
     checksum: str,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user) # Protect this endpoint

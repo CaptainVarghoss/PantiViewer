@@ -198,8 +198,7 @@ app.add_middleware(
 @app.websocket("/ws/image-updates")
 async def websocket_endpoint(
     websocket: WebSocket,
-    token: Optional[str] = Query(None),
-    db: Session = Depends(database.get_db)
+    token: Optional[str] = Query(None)
 ):
     """
     This is the main WebSocket endpoint for clients to connect to.
@@ -212,10 +211,14 @@ async def websocket_endpoint(
             # This replicates the logic from auth.get_current_user without being a dependency
             payload = jwt.decode(token, config.SECRET_KEY, algorithms=[auth.ALGORITHM])
             username: str = payload.get("sub")
-            if username is None:
-                user = None # Or raise an exception if you want to close the connection
-            else:
-                user = db.query(models.User).filter(models.User.username == username).first()
+            
+            if username:
+                # Create a short-lived session just for authentication
+                with database.SessionLocal() as db:
+                    user = db.query(models.User).filter(models.User.username == username).first()
+                    if user:
+                        # Detach the user object from the session so it persists after the block
+                        db.expunge(user)
 
         except (JWTError, Exception):
             # If token is invalid, user remains None, resulting in an anonymous connection.

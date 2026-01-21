@@ -275,7 +275,14 @@ def scan_paths(db: Session):
 
         # Fetch all existing paths and checksums once at the start.
         paths_to_scan = db.query(models.ImagePath).all()
+        
+        # Sort paths to ensure consistent scan order
+        paths_to_scan.sort(key=lambda p: p.path)
+
         existing_image_paths = {p.path for p in paths_to_scan}
+        # Create a set of paths that are already tracked to prevent recursion overlap
+        paths_to_scan_set = existing_image_paths.copy()
+        
         existing_image_checksums = {row[0] for row in db.query(models.ImageContent.content_hash).all()}
 
         for image_path_entry in paths_to_scan:
@@ -291,7 +298,11 @@ def scan_paths(db: Session):
             path_time = datetime.now()
             path_files_scanned = 0
             
-            for root, dirs, files in os.walk(current_path):
+            for root, dirs, files in os.walk(current_path, topdown=True):
+                # Prevent recursing into subdirectories that are already tracked as separate ImagePaths
+                # This ensures files are not counted multiple times across different path entries
+                dirs[:] = [d for d in dirs if os.path.join(root, d) not in paths_to_scan_set]
+
                 # --- Discover and immediately commit subdirectories ---
                 for d in dirs:
                     subdir_full_path = os.path.join(root, d)
@@ -452,8 +463,10 @@ def generate_thumbnail(
         # Generate Thumbnail
         thumb_img = image_to_process.copy()
         thumb_img.thumbnail((thumb_size,thumb_size))
+        
         thumb_filepath = thumbnail_output_dir / f"{output_filename_base}_thumb.webp"
-        thumb_img.save(thumb_filepath, "webp")
+        temp_thumb_filepath = thumbnail_output_dir / f"{output_filename_base}_thumb.webp.tmp"
+        thumb_img.save(temp_thumb_filepath, "webp")
         thumb_img.close()
         image_to_process.close()
 
@@ -462,6 +475,9 @@ def generate_thumbnail(
     except Exception as e:
         print(f"Error generating image thumbnail for {source_filepath}: {e}")
         return None
+
+    # Atomic move to final destination
+    os.replace(temp_thumb_filepath, thumb_filepath)
 
     if (temp_image_path):
         if (os.path.exists(temp_image_path)):
