@@ -333,13 +333,12 @@ def build_sqlalchemy_filter(node: Node, ImageContent, Tag, ImageLocation):
         if node.term_type == TOKEN_TYPE_PHRASE:
             # If it's a standalone quoted phrase (e.g., "cat"), search for it as a whole word
             # across exif_data, folder, filename, and tag names.
-            # We use regex with word boundaries (\b) for this.
-            # re.escape is used to safely handle special characters in the search term.
-            regex_pattern = r'\b' + re.escape(search_term) + r'\b'
-            meta_filter = ImageContent.exif_data.regexp_match(regex_pattern, flags='i')
-            folder_filter = ImageLocation.path.regexp_match(regex_pattern, flags='i')
-            filename_filter = ImageLocation.filename.regexp_match(regex_pattern, flags='i')
-            tag_filter = ImageContent.tags.any(Tag.name.regexp_match(regex_pattern, flags='i'))
+            # Switched to ilike for performance and stability (prevents segfaults in some DB drivers).
+            term_pattern = f"%{search_term}%"
+            meta_filter = ImageContent.exif_data.ilike(term_pattern)
+            folder_filter = ImageLocation.path.ilike(term_pattern)
+            filename_filter = ImageLocation.filename.ilike(term_pattern)
+            tag_filter = ImageContent.tags.any(Tag.name.ilike(term_pattern))
             return or_(meta_filter, folder_filter, filename_filter, tag_filter)
 
         elif node.term_type == TOKEN_TYPE_WORD:
@@ -365,9 +364,9 @@ def build_sqlalchemy_filter(node: Node, ImageContent, Tag, ImageLocation):
             # For the 'FOLDER:' keyword:
             if node.value_original_type == TOKEN_TYPE_PHRASE:
                 # If quoted, search for the term as a whole word on EITHER the full path OR the short_name.
-                regex_pattern = r'\b' + re.escape(search_term) + r'\b'
+                term_pattern = f"%{search_term}%"
                 return or_(
-                    ImageLocation.path.regexp_match(regex_pattern, flags='i'),
+                    ImageLocation.path.ilike(term_pattern),
                     ImageLocation.path.in_(
                         expression.select(ImagePath.path).where(
                             ImagePath.short_name.ilike(search_term)
