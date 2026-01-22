@@ -147,7 +147,7 @@ function Navbar({
                   { label: 'Delete Selected Permanently', handler: imageActions.deleteSelectedPermanently, danger: true },
                 ]
               : [
-                  { label: 'Move', handler: imageActions.moveSelectedImages, danger: false },
+                  { label: 'Move', handler: () => openModal('moveFiles', { filesToMove: selectedImages }), danger: false },
                   { label: 'Delete', handler: imageActions.deleteSelectedImages, danger: true },
                 ]
           }

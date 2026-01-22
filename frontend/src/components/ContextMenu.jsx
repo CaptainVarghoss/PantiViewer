@@ -92,7 +92,7 @@ const ContextMenu = ({
       setShowTagCluster(prev => !prev); // Toggle tag cluster visibility
     } else {
       if (actions) {
-        const { imageActions, setIsSelectMode, setSelectedImages } = actions;
+        const { imageActions, setIsSelectMode, setSelectedImages, openModal } = actions;
         switch (action) {
           case 'select':
             setIsSelectMode(true);
@@ -111,10 +111,10 @@ const ContextMenu = ({
             imageActions.deleteSelectedImages();
             break;
           case 'move':
-            imageActions.moveSelectedImages(new Set([data.id]));
+            if (openModal) openModal('moveFiles', { filesToMove: new Set([data.id]) });
             break;
           case 'move_selected':
-            imageActions.moveSelectedImages();
+            if (openModal) openModal('moveFiles', { filesToMove: selectedImageIds });
             break;
           case 'restore_selected':
             imageActions.restoreSelectedImages();

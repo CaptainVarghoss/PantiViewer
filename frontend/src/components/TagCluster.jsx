@@ -125,6 +125,7 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
     const [activeTagIds, setActiveTagIds] = useState(new Set());
     const [error, setError] = useState(null);
     const [newTagName, setNewTagName] = useState('');
+    const [newTagAdminOnly, setNewTagAdminOnly] = useState(false);
     const [showCreateForm, setShowCreateForm] = useState(false);
 
     const canModifyTags = isAdmin || (settings?.allow_tag_add === true);
@@ -264,13 +265,18 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
         if (!newTagName.trim() || !canModifyTags) return;
 
         try {
+            const payload = { name: newTagName.trim() };
+            if (newTagAdminOnly) {
+                payload.admin_only = true;
+            }
+
             const response = await fetch('/api/tags/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ name: newTagName.trim() }),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -280,6 +286,7 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
 
             // Clear the input and refetch all tags to show the new one
             setNewTagName('');
+            setNewTagAdminOnly(false);
             await fetchAllTags();
 
         } catch (err) {
@@ -318,7 +325,18 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
                                 placeholder="Create new tag..."
                                 className="form-input-base"
                             />
-                            <button type="submit" name="submit" disabled={!newTagName.trim()} className="btn-base btn-green">Add</button>
+                            {isAdmin && (
+                                <label style={{ display: 'flex', alignItems: 'center', margin: '0 8px', cursor: 'pointer', whiteSpace: 'nowrap' }} title="Admin only tag">
+                                    <input
+                                        type="checkbox"
+                                        checked={newTagAdminOnly}
+                                        onChange={(e) => setNewTagAdminOnly(e.target.checked)}
+                                        style={{ marginRight: '4px' }}
+                                    />
+                                    <span style={{ fontSize: '0.85em' }}>Admin</span>
+                                </label>
+                            )}
+                            <button type="submit" name="submit" disabled={!newTagName.trim()} className="btn-base btn-green">Add Tag</button>
                         </form>
                     </div>
                     <button

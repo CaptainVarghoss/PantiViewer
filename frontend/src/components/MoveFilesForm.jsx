@@ -4,9 +4,10 @@ import { moveImagesApi } from '../api/imageService';
 import { fetchFoldersAsTreeApi } from '../api/folderService';
 import FolderTree from './FolderTree'; // Import the FolderTree component
 
-const MoveFilesForm = ({ filesToMove, onMoveSuccess, onClose }) => {
+const MoveFilesForm = ({ filesToMove, selectedImages, imageIds, onMoveSuccess, onClose }) => {
     const [folders, setFolders] = useState([]);
     const [selectedFolder, setSelectedFolder] = useState(null);
+    const safeFilesToMove = Array.from(filesToMove || selectedImages || imageIds || []);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -32,7 +33,7 @@ const MoveFilesForm = ({ filesToMove, onMoveSuccess, onClose }) => {
             setError('Please select a destination folder.');
             return;
         }
-        if (!filesToMove || filesToMove.length === 0) {
+        if (safeFilesToMove.length === 0) {
             setError('No files selected to move.');
             return;
         }
@@ -42,7 +43,7 @@ const MoveFilesForm = ({ filesToMove, onMoveSuccess, onClose }) => {
 
         try {
             await moveImagesApi({
-                imageIds: filesToMove,
+                imageIds: safeFilesToMove,
                 destinationPath: selectedFolder,
                 token,
             });
@@ -64,7 +65,7 @@ const MoveFilesForm = ({ filesToMove, onMoveSuccess, onClose }) => {
                     Move Selected Files
                 </h3>
                 <p style={{ marginBottom: '1.5rem', color: 'var(--text-muted)', fontSize: '1rem' }}>
-                    Select a destination folder to move the {filesToMove.length} selected item(s).
+                    Select a destination folder to move the {safeFilesToMove.length} selected item(s).
                 </p>
 
                 <div className="folder-list-container">

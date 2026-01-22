@@ -64,15 +64,18 @@ const buildFolderTree = (imagePaths) => {
     return { tree: rootNodes, parentPaths: allParentPaths };
 };
 
-const FolderTree = ({ webSocketMessage, setWebSocketMessage }) => {
+const FolderTree = ({ webSocketMessage, setWebSocketMessage, onSelectFolder, selectedFolderPath, nodes }) => {
     const { token } = useAuth();
     const { searchTerm, setSearchTerm } = useSearch();
     const [folderTree, setFolderTree] = useState([]); // Initialize as an empty array
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [selectedFolderPath, setSelectedFolderPath] = useState(null);
+    const [internalSelectedFolderPath, setInternalSelectedFolderPath] = useState(null);
     const [expandedFolders, setExpandedFolders] = useState(new Set()); // Stores paths of expanded folders
     const [shortNameToPathMap, setShortNameToPathMap] = useState({});
+
+    // Use prop if provided (controlled), otherwise local state
+    const activeSelectedPath = selectedFolderPath !== undefined ? selectedFolderPath : internalSelectedFolderPath;
 
     // Effect to handle WebSocket messages
     useEffect(() => {
@@ -82,24 +85,33 @@ const FolderTree = ({ webSocketMessage, setWebSocketMessage }) => {
 
         if (type === 'refresh_images' || type === 'image_deleted' || type === 'images_deleted') {
             // When in folder view, a file change might affect the folder structure.
-            fetchFolders();
+            // If nodes are provided via props, the parent is responsible for updating them.
+            if (!nodes) {
+                fetchFolders();
+            }
         }
-        setWebSocketMessage(null);
-    }, [webSocketMessage, setWebSocketMessage]);
+        if (setWebSocketMessage) setWebSocketMessage(null);
+    }, [webSocketMessage, setWebSocketMessage, nodes]);
 
     const fetchFolders = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch('/api/folders/', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) {
-                throw new Error(`Failed to fetch folders: ${response.statusText}`);
+            let foldersData;
+            if (nodes) {
+                foldersData = nodes;
+            } else {
+                const response = await fetch('/api/folders/', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch folders: ${response.statusText}`);
+                }
+                const responseData = await response.json(); // Expects { folders: ImagePath[] }
+                foldersData = responseData.folders;
             }
-            const responseData = await response.json(); // Expects { folders: ImagePath[] }
-            const { tree, parentPaths } = buildFolderTree(responseData.folders); // Pass the array of ImagePath objects
-            const newShortNameToPathMap = responseData.folders.reduce((acc, folder) => {
+            const { tree, parentPaths } = buildFolderTree(foldersData); // Pass the array of ImagePath objects
+            const newShortNameToPathMap = foldersData.reduce((acc, folder) => {
                 if (folder.short_name) {
                     acc[folder.short_name] = folder.path;
                 }
@@ -114,7 +126,7 @@ const FolderTree = ({ webSocketMessage, setWebSocketMessage }) => {
         } finally {
             setLoading(false);
         }
-    }, [token]);
+    }, [token, nodes]);
 
     useEffect(() => {
         fetchFolders();
@@ -122,14 +134,17 @@ const FolderTree = ({ webSocketMessage, setWebSocketMessage }) => {
 
     // Effect to sync selected folder path with the search term from context
     useEffect(() => {
+        // If in selection mode (onSelectFolder provided), do not sync with search term
+        if (onSelectFolder) return;
+
         if (searchTerm && searchTerm.startsWith('Folder:"') && searchTerm.endsWith('"')) {
             const shortName = searchTerm.substring('Folder:"'.length, searchTerm.length - 1);
-            setSelectedFolderPath(shortNameToPathMap[shortName] || null);
+            setInternalSelectedFolderPath(shortNameToPathMap[shortName] || null);
         } else {
             // If searchTerm is cleared or not a folder search, deselect.
-            setSelectedFolderPath(null);
+            setInternalSelectedFolderPath(null);
         }
-    }, [searchTerm, shortNameToPathMap]);
+    }, [searchTerm, shortNameToPathMap, onSelectFolder]);
 
     const handleToggleExpand = (path, event) => {
         event.stopPropagation();
@@ -147,14 +162,18 @@ const FolderTree = ({ webSocketMessage, setWebSocketMessage }) => {
     const renderFolder = (node) => {
         const isExpanded = expandedFolders.has(node.path);
         const hasChildren = node.children && node.children.length > 0;
-        const isSelected = selectedFolderPath === node.path;
+        const isSelected = activeSelectedPath === node.path;
         const isRoot = node.depth === 0;
 
         const handleSelect = () => {
-            // Allow deselecting by clicking the same folder again
-            const newSearchTerm = isSelected ? null : `Folder:"${node.name}"`;
-            // Update the search term in the context
-            setSearchTerm(newSearchTerm);
+            if (onSelectFolder) {
+                onSelectFolder(node.path);
+            } else {
+                // Allow deselecting by clicking the same folder again
+                const newSearchTerm = isSelected ? null : `Folder:"${node.name}"`;
+                // Update the search term in the context
+                setSearchTerm(newSearchTerm);
+            }
         };
 
         return (
