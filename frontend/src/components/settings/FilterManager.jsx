@@ -365,7 +365,7 @@ function FilterManager({ isAdmin }) {
                                         <div className="section-row">
                                             <div className="section-fields">
                                                 <div className="form-group">
-                                                    <label for="name">Name</label>
+                                                    <label htmlFor="name">Name</label>
                                                     <input
                                                         type="text"
                                                         value={filter.name || ''}
