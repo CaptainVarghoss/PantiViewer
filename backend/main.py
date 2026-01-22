@@ -260,15 +260,7 @@ async def websocket_endpoint(
             # If token is invalid, user remains None, resulting in an anonymous connection.
             pass
     await manager.connect(websocket, user)
-    try:
-        # This loop keeps the connection alive.
-        # It waits for messages from the client, but we won't do anything
-        # with them in this basic example.
-        while True:
-            # We must await something here to keep the connection open
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, user)
+    await manager.listen_for_messages(websocket, user)
 
 # --- Include Routers ---
 app.include_router(auth_routes.router, prefix="/api", tags=["Auth"])

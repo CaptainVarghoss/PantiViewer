@@ -10,6 +10,7 @@ export function useWebSocket(baseUrl, token, isAdmin, onMessage) {
     const [isConnected, setIsConnected] = useState(false);
     const ws = useRef(null);
     const messageHandler = useRef(null);
+    const pingInterval = useRef(null);
 
     messageHandler.current = onMessage;
 
@@ -33,22 +34,35 @@ export function useWebSocket(baseUrl, token, isAdmin, onMessage) {
             ws.current.onopen = () => {
                 console.log('WebSocket connection established');
                 setIsConnected(true);
+                // Start sending pings to keep the connection alive
+                pingInterval.current = setInterval(() => {
+                    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+                        ws.current.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 30000); // every 30 seconds
             };
 
             ws.current.onmessage = (event) => {
-                if (messageHandler.current) {
-                    try {
-                        const messageData = JSON.parse(event.data);
-                        messageHandler.current(messageData);
-                    } catch (e) {
-                        console.error('Failed to parse WebSocket message:', e);
+                try {
+                    const messageData = JSON.parse(event.data);
+                    // If it's a pong from the server, just ignore it.
+                    if (messageData.type === 'pong') {
+                        // Debug log for websocket ping pong
+                        // console.log('WebSocket: Pong received from server.');
+                        return;
                     }
+                    if (messageHandler.current) {
+                        messageHandler.current(messageData);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse WebSocket message:', e);
                 }
             };
 
             ws.current.onclose = () => {
                 console.log('WebSocket connection closed. Reconnecting in 3 seconds...');
                 setIsConnected(false);
+                clearInterval(pingInterval.current); // Stop pinging
                 // Simple auto-reconnect logic
                 setTimeout(connect, 3000);
             };
@@ -63,6 +77,7 @@ export function useWebSocket(baseUrl, token, isAdmin, onMessage) {
 
         // Cleanup on component unmount
         return () => {
+            clearInterval(pingInterval.current);
             if (ws.current) {
                 // Prevent reconnection attempts when the component unmounts
                 ws.current.onclose = null;

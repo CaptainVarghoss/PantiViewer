@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict, Optional
 import asyncio
-from fastapi import WebSocket, Depends
+from fastapi import WebSocket, Depends, WebSocketDisconnect
 
 import models
 
@@ -48,6 +48,29 @@ class WebSocketManager:
             if websocket in self.anonymous_connections:
                 self.anonymous_connections.remove(websocket)
                 print(f"Anonymous client disconnected: {websocket.client.host}")
+
+    async def listen_for_messages(self, websocket: WebSocket, user: Optional[models.User] = None):
+        """
+        Listens for incoming messages from a client and handles them.
+        This function runs until the client disconnects.
+        It handles keep-alive pings and ensures disconnection cleanup.
+        """
+        try:
+            while True:
+                data = await websocket.receive_text()
+                try:
+                    message = json.loads(data)
+                    if isinstance(message, dict) and message.get("type") == "ping":
+                        await self.send_personal_json(websocket, {"type": "pong"})
+                        # Ping/Pong message for debugging websocket
+                        # print(f'Received ping from user client: {user.username}')
+                except (json.JSONDecodeError, AttributeError):
+                    # Not a JSON message or not the structure we expect. Ignore for ping purposes.
+                    pass
+        except WebSocketDisconnect:
+            print(f"Client disconnected: {websocket.client.host}")
+        finally:
+            self.disconnect(websocket, user)
 
     async def _send_json(self, websocket: WebSocket, message: dict):
         try:
