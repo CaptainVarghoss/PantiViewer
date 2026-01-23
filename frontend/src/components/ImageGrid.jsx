@@ -57,14 +57,17 @@ function ImageGrid({
   trash_only = false,
   contextMenuItems,
   openModal,
-  onImagesLoaded
+  onImagesLoaded,
+  gridRef: externalGridRef,
+  outerGridRef
 }) {
   const { token, settings } = useAuth();
   const { searchTerm } = useSearch();
   const { filters } = useFilters();
   const queryClient = useQueryClient();
   const containerRef = useRef(null);
-  const gridRef = useRef(null); // Ref for the grid container
+  const internalGridRef = useRef(null);
+  const gridRef = externalGridRef || internalGridRef;
 
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
 
@@ -444,6 +447,7 @@ function ImageGrid({
         {gridSize.width > 0 && gridSize.height > 0 && columnCount > 0 ? (
           <Grid
             ref={gridRef}
+            outerRef={outerGridRef}
             className="image-grid"
             columnCount={columnCount}
             columnWidth={columnWidth}

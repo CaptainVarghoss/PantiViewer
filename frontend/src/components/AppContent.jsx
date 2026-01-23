@@ -6,6 +6,7 @@ import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useWebSocket } from '../hooks/useWebSocket';
 
 import Navbar from './Navbar';
+import FooterBar from './FooterBar';
 import ImageGrid from "./ImageGrid";
 import FolderTree from './FolderTree';
 import Modal from './Modal';
@@ -29,6 +30,12 @@ export function AppContent({
   const [isClosingModal, setIsClosingModal] = useState(false);
 
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+  const gridRef = useRef(null);
+  const outerGridRef = useRef(null);
+
+  const handleScrollToTop = () => {
+    outerGridRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const toggleFullScreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -130,6 +137,8 @@ export function AppContent({
       <main>
         {currentView === 'grid' && (
           <ImageGrid
+            gridRef={gridRef}
+            outerGridRef={outerGridRef}
             webSocketMessage={webSocketMessage}
             setWebSocketMessage={setWebSocketMessage}
             isSelectMode={isSelectMode}
@@ -163,6 +172,8 @@ export function AppContent({
             </div>
             <div className="image-grid-panel">
               <ImageGrid
+                gridRef={gridRef}
+                outerGridRef={outerGridRef}
                 webSocketMessage={webSocketMessage}
                 setWebSocketMessage={setWebSocketMessage}
                 isSelectMode={isSelectMode}
@@ -188,6 +199,9 @@ export function AppContent({
           />
         )}
       </AnimatePresence>
+      <footer>
+        <FooterBar onScrollToTop={handleScrollToTop} />
+      </footer>
     </>
   );
 }

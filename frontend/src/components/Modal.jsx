@@ -465,7 +465,7 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
     return (
         <motion.div
             key={`modal-${modalType}`}
-            className="modal-overlay"
+            className="modal-overlay hide-scrollbar"
             onClick={onClose}
             variants={modalVariants}
             initial="hidden"

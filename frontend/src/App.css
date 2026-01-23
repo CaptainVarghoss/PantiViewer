@@ -70,6 +70,16 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
     color: var(--shadow-color);
 }
 
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 /* --- TYPOGRAPHY --- */
 h1, h2, h3 {
     color: hsl(0, 0%, 95%);
@@ -178,10 +188,10 @@ p {
 }
 
 /* --- HEADER/NAVIGATION --- */
-header, section {
+header, section, footer {
     background-color: var(--bg-header);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-    border-radius: var(--radius-xl);
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
     margin-bottom: 0.5rem;
     padding: 0.5rem;
     border: 1px solid var(--border-color);
@@ -194,6 +204,16 @@ header {
   z-index: 10;
 }
 
+footer {
+  position: relative;
+  bottom: 0;
+  z-index: 10;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  padding: 0;
+}
+
 #connection {
   position: fixed;
   top: 0.8rem;
@@ -203,6 +223,7 @@ header {
   border: 0.1rem solid;
   z-index: 1000;
 }
+
 main {
     flex-grow: 1;
     min-height: 0;
@@ -412,6 +433,37 @@ nav input {
     justify-content: center;
 }
 
+/* --- FOOTER BAR --- */
+.footer-bar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: small;
+  margin-inline: 0.5rem;
+  padding: 0.25rem;
+  padding-inline: 0.5rem;
+
+}
+
+.footer-bar-container div {
+  padding-inline: 0.5rem;
+}
+
+.footer-version {
+ border-right: 1px solid var(--border-color);
+}
+
+.footer-buttons {
+  border-inline: 1px solid var(--border-color);
+}
+
+.footer-slider {
+  border-inline: 1px solid var(--border-color);
+}
+
+.footer-totop {
+  border-left: 1px solid var(--border-color);
+}
 
 /* --- FORM ELEMENT STYLING --- */
 .form-group {
