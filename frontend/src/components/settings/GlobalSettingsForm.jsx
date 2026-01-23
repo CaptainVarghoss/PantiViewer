@@ -17,11 +17,13 @@ function GlobalSettingsForm() {
     switchStates,
     textInputStates,
     numberInputStates,
+    // overriddenSettings, // Not used in global form
     handleBooleanToggle,
     handleTextInputChange,
     handleTextInputBlur,
     handleNumberInputChange,
     handleNumberInputBlur,
+    // handleResetSetting, // Not used in global form
     isAuthenticated,
     isAdmin
   } = useSettingsFormLogic('global'); // Specify 'global' form type

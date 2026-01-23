@@ -121,19 +121,6 @@ class Setting(Base):
     group = Column(String) # Category for grouping in UI (e.g., 'Appearance', 'Security')
     input_type = Column(String, default='text') # 'text', 'number', 'switch', 'custom_sidebar_switches'
 
-
-class DeviceSetting(Base):
-    __tablename__ = "device_settings"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    device_id = Column(String, nullable=False, index=True) # Device identifier
-    value = Column(String, nullable=False)
-
-    # Ensure that a user can only have one override per setting name per device
-    __table_args__ = (UniqueConstraint('user_id', 'device_id', 'name', name='_device_setting_uc'),)
-
-
 class Filter(Base):
     __tablename__ = "filters"
     id = Column(Integer, primary_key=True, index=True)

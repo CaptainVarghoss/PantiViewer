@@ -12,11 +12,7 @@ import useSettingsFormLogic from '../../hooks/useSettingsFormLogic';
  * @param {function} props.onClose - Callback to close the parent sidebar.
  */
 function DeviceSpecificSettingsForm({ onBack, onClose }) {
-  const { deviceId, useDeviceSettings, handleUseDeviceSettingsToggle } = useAuth();
-
-  // Read the initial state for the device settings override from localStorage.
-  // This value must be passed to the hook to avoid conditional hook errors.
-  const initialUseDeviceSettings = useDeviceSettings;
+  const { deviceId } = useAuth();
 
   const {
     loadingLocal,
@@ -31,8 +27,9 @@ function DeviceSpecificSettingsForm({ onBack, onClose }) {
     handleTextInputBlur,
     handleNumberInputChange,
     handleNumberInputBlur,
+    handleResetSetting,
     isAuthenticated,
-  } = useSettingsFormLogic('device', deviceId, initialUseDeviceSettings);
+  } = useSettingsFormLogic('device', deviceId);
 
   /**
    * Custom handler for navigation toggles to ensure at least one is always enabled.
@@ -69,42 +66,29 @@ function DeviceSpecificSettingsForm({ onBack, onClose }) {
   return (
     <>
 
-      {/* Toggle for "Use Device Specific Settings" */}
-      <div className="section-container">
-        <div className="form-group">
-          <div className="checkbox-container">
-              <span className="checkbox-label">
-                <p className="section-help">
-                  {useDeviceSettings
-                    ? "Device-specific settings are active. Changes made here will override global settings."
-                    : "Device-specific settings are currently disabled. This device is using global settings (read-only mode). Enable this to allow customization of settings for this device."}
-                </p>
-                <h4 className="settings-group-title">Use Device Specific Settings -- (ID: {deviceId ? deviceId.substring(0, 8) + '...' : 'N/A'})</h4>
-              </span>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  className="checkbox-base"
-                  checked={useDeviceSettings}
-                  onChange={(e) => handleUseDeviceSettingsToggle(e.target.checked)}
-                />
-              </label>
-          </div>
-        </div>
-      </div>
-
-      
-
         {Object.entries(groupedSettings).map(([groupName, settingsInGroup]) => (
           <div key={groupName} className="section-container">
             <h4 className="settings-group-title">{groupName}</h4>
             {settingsInGroup.map((setting) => (
               <div key={setting.id} className="form-group">
                 {(() => { // eslint-disable-line no-unused-vars
-                  const isDisabled = !useDeviceSettings || setting.admin_only;
+                  const isDisabled = setting.admin_only;
                   const commonProps = {
                     label: setting.display_name || setting.name.replace(/_/g, ' '),
                     disabled: isDisabled
+                  };
+
+                  const renderResetButton = () => {
+                    return (
+                      <button 
+                        className="btn-base btn-small btn-red" 
+                        style={{marginLeft: '10px'}}
+                        onClick={() => handleResetSetting(setting.name)}
+                        title="Reset to global default"
+                      >
+                        Reset
+                      </button>
+                    );
                   };
 
                   switch (setting.input_type) {
@@ -114,6 +98,7 @@ function DeviceSpecificSettingsForm({ onBack, onClose }) {
                             <span className="checkbox-label">
                                 {commonProps.label}
                             </span>
+                            {renderResetButton()}
                             <label className="checkbox-label">
                                 <input type="checkbox"
                                     className='checkbox-base'
@@ -132,6 +117,7 @@ function DeviceSpecificSettingsForm({ onBack, onClose }) {
                         <>
                           <label htmlFor={`device-${setting.name}`} className="form-label">
                             {commonProps.label}
+                            {renderResetButton()}
                           </label>
                           <input
                             type="text"
@@ -151,6 +137,7 @@ function DeviceSpecificSettingsForm({ onBack, onClose }) {
                         <>
                           <label htmlFor={`device-${setting.name}`} className="form-label">
                             {commonProps.label}
+                            {renderResetButton()}
                           </label>
                           <input
                             type="text"

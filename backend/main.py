@@ -96,10 +96,10 @@ async def lifespan(app: FastAPI):
 
         if not db.query(models.Setting).first():
             print("Adding initial Settings...")
-            db.add(models.Setting(name='left_enabled', value='True', admin_only=False,
+            db.add(models.Setting(name='left_enabled', value='False', admin_only=False,
                                  display_name='Enable Left Icons', description='Controls if the left icons are enabled.',
                                  group='Appearance', input_type='switch'))
-            db.add(models.Setting(name='right_enabled', value='False', admin_only=False,
+            db.add(models.Setting(name='right_enabled', value='True', admin_only=False,
                                  display_name='Enable Right Icons', description='Controls if the right icons are enabled.',
                                  group='Appearance', input_type='switch'))
             db.add(models.Setting(name='allow_signup', value='False', admin_only=True,
@@ -129,8 +129,8 @@ async def lifespan(app: FastAPI):
             db.add(models.Setting(name='allow_folder_tag_remove', value='False', admin_only=True,
                                  display_name='Allow Folder Tag Remove', description='Allow users to remove tags from folders.',
                                  group='Permissions', input_type='switch'))
-            db.add(models.Setting(name='thumb_size', value='400', admin_only=True,
-                                 display_name='Thumbnail Size (px)', description='Max dimension for generated image thumbnails.',
+            db.add(models.Setting(name='max_thumb_size', value='400', admin_only=True,
+                                 display_name='Max Thumbnail Size (px)', description='Max dimension for generated image thumbnails.',
                                  group='Media', input_type='number'))
             db.add(models.Setting(name='flyout', value='False', admin_only=True,
                                  display_name='Enable Flyout Mode', description='Enable flyout mode for external media display.',
@@ -138,8 +138,8 @@ async def lifespan(app: FastAPI):
             db.add(models.Setting(name='flyout_address', value='False', admin_only=True,
                                  display_name='Flyout Server Address', description='Address for the flyout server if enabled.',
                                  group='Flyout', input_type='text'))
-            db.add(models.Setting(name='thumb_num', value='60', admin_only=False,
-                                 display_name='Thumbnails Per Page', description='Number of thumbnails to display per page in the image grid.',
+            db.add(models.Setting(name='thumb_size', value='200', admin_only=False,
+                                 display_name='Default Thumbnail Size', description='Size thumbnail images are display at by default. Can be changed with slider on the grid.',
                                  group='Appearance', input_type='number'))
             db.add(models.Setting(name='enable_previews', value='False', admin_only=False,
                                  display_name='Enable Previews', description='Enable generation and display of larger image previews.',
@@ -147,9 +147,6 @@ async def lifespan(app: FastAPI):
             db.add(models.Setting(name='preview_size', value='1024', admin_only=True,
                                  display_name='Preview Size (px)', description='Max dimension for generated image previews.',
                                  group='Media', input_type='number'))
-            db.add(models.Setting(name='thumb_offset', value='0', admin_only=False,
-                                 display_name='Thumbnail Offset', description='Change this to increase or decrease thumbnail size.',
-                                 group='Appearance', input_type='number'))
             db.add(models.Setting(name='theme', value='default', admin_only=False,
                                  display_name='Default Theme', description='The default visual theme of the application (e.g., "default", "dark", "light").',
                                  group='Appearance', input_type='text')) # Could be a dropdown in future

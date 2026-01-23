@@ -10,16 +10,13 @@ import { useAuth } from '../context/AuthContext';
  * @param {string} [deviceId] - Required if formType is 'device'. The unique ID of the device.
  * @returns {object} An object containing states and handlers needed by the settings forms.
  */
-function useSettingsFormLogic(formType, deviceId = null, useDeviceSettings) {
+function useSettingsFormLogic(formType, deviceId = null) {
   const { user, token, isAdmin, isAuthenticated, loading: authLoading, fetchSettings, settings } = useAuth();
 
   const [settingsList, setSettingsList] = useState([]); // List of full setting objects (Global or Device-accessible)
   const [loadingLocal, setLoadingLocal] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-
-  // This state was missing. It tracks the user's choice to override global settings with device-specific ones.
-  const [useDeviceSettingsOverrideEnabled, setUseDeviceSettingsOverrideEnabled] = useState(useDeviceSettings);
 
   // States for individual boolean/custom switches, dynamically updated
   const [switchStates, setSwitchStates] = useState({});
@@ -33,11 +30,6 @@ function useSettingsFormLogic(formType, deviceId = null, useDeviceSettings) {
     const num = parseFloat(value);
     return isNaN(num) ? '' : num;
   }, []);
-
-  // Sync local state if the prop changes
-  useEffect(() => {
-    setUseDeviceSettingsOverrideEnabled(useDeviceSettings);
-  }, [useDeviceSettings]);
 
   // Main fetch function, dynamic based on formType
   const fetchCurrentSettings = useCallback(async () => {
@@ -61,19 +53,8 @@ function useSettingsFormLogic(formType, deviceId = null, useDeviceSettings) {
       }
       endpoint = '/api/settings/';
     } else if (formType === 'device') {
-      if (!deviceId) {
-        setError("Device ID is missing for device settings.");
-        setLoadingLocal(false);
-        return;
-      }
-      // For device settings, we fetch the tiered settings which include global,
-      // and device overrides if 'use_device_settings' is true.
-      if (useDeviceSettings) {
-        endpoint = `/api/settings/?device_id=${deviceId}`;
-        // NO console.log('Is it here?')
-      } else {
-        endpoint = `/api/settings/`; // Request only global settings
-      }
+      // For device settings, we fetch global settings to get metadata and defaults
+      endpoint = `/api/settings/`;
     } else {
       setError("Invalid form type provided.");
       setLoadingLocal(false);
@@ -86,7 +67,6 @@ function useSettingsFormLogic(formType, deviceId = null, useDeviceSettings) {
         const rawData = await response.json();
 
         // For the 'device' formType, filter out admin-only settings
-        // Note: 'use_device_settings' is no longer expected from backend for client-side toggle
         const dataToProcess = formType === 'device' ? rawData.filter(setting => !setting.admin_only) : rawData;
         setSettingsList(dataToProcess);
 
@@ -94,9 +74,37 @@ function useSettingsFormLogic(formType, deviceId = null, useDeviceSettings) {
         const initialTextInputStates = {};
         const initialNumberInputStates = {};
 
+        // Load local overrides if applicable
+        let localSettings = {};
+        let settingsUpdated = false;
+
+        if (formType === 'device') {
+          try {
+            const stored = localStorage.getItem('panti_device_settings');
+            if (stored) {
+              localSettings = JSON.parse(stored);
+            }
+          } catch (e) {
+            console.error("Failed to parse local device settings", e);
+          }
+          
+          // Ensure the override flag is always on for device settings
+          localStorage.setItem('use_device_settings_override', 'true');
+        }
+
         // Populate initial states based on the values in rawData
         dataToProcess.forEach(setting => {
-          const value = setting.value;
+          let value = setting.value;
+          
+          // Apply local override if exists
+          if (formType === 'device' && localSettings.hasOwnProperty(setting.name)) {
+             value = localSettings[setting.name];
+          } else if (formType === 'device') {
+             // If not in local storage, create it from global setting
+             localSettings[setting.name] = value;
+             settingsUpdated = true;
+          }
+
           switch (setting.input_type) {
             case 'switch':
               initialSwitchStates[setting.name] = parseBooleanSetting(value);
@@ -110,6 +118,12 @@ function useSettingsFormLogic(formType, deviceId = null, useDeviceSettings) {
               break;
           }
         });
+
+        // Save initialized settings to localStorage if any were missing
+        if (formType === 'device' && settingsUpdated) {
+            localStorage.setItem('panti_device_settings', JSON.stringify(localSettings));
+        }
+
         setSwitchStates(initialSwitchStates);
         setTextInputStates(initialTextInputStates);
         setNumberInputStates(initialNumberInputStates);
@@ -130,7 +144,7 @@ function useSettingsFormLogic(formType, deviceId = null, useDeviceSettings) {
 
   useEffect(() => {
     // Determine when to fetch based on formType and auth status
-    const shouldFetch = !authLoading && isAuthenticated && (formType !== 'device' || deviceId);
+    const shouldFetch = !authLoading && isAuthenticated;
 
     if (shouldFetch) {
       fetchCurrentSettings();
@@ -144,8 +158,6 @@ function useSettingsFormLogic(formType, deviceId = null, useDeviceSettings) {
       setError(""); // Clear error to avoid showing old errors if unauthenticated
       if (!isAuthenticated) {
         setError("User not authenticated.");
-      } else if (formType === 'device' && !deviceId) {
-        setError("Device ID is missing. Cannot load device-specific settings.");
       } else if (formType === 'global' && !isAdmin) {
         setError("Access Denied: Only administrators can view global settings.");
       }
@@ -158,7 +170,7 @@ function useSettingsFormLogic(formType, deviceId = null, useDeviceSettings) {
     setMessage('');
     setError('');
 
-    if (!isAuthenticated || !user || !token || (formType === 'device' && !deviceId)) {
+    if (!isAuthenticated || !user || !token) {
       setError("Authorization failed for update.");
       console.warn(`useSettingsFormLogic (${formType}): Unauthorized attempt to update setting.`);
       return;
@@ -192,76 +204,83 @@ function useSettingsFormLogic(formType, deviceId = null, useDeviceSettings) {
         }
         apiEndpoint = `/api/settings/${settingMetadata.id}`; // Update global setting by ID
         requestBody = { name: settingName, value: actualValueToSave };
-    } else if (formType === 'device') {
-        // Only allow updates if device settings are enabled
-        if (!useDeviceSettings) {
-            setError("Device-specific settings are disabled. Please enable the toggle to make changes.");
-            console.warn("Attempted to update device settings when the override toggle is off.");
-            return;
+
+         try {
+          const response = await fetch(apiEndpoint, {
+            method: apiMethod,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(requestBody),
+          });
+    
+          if (response.ok) {
+            setMessage(`Setting '${settingMetadata.display_name}' updated successfully!`);
+            console.log(`useSettingsFormLogic (${formType}): Successfully updated ${settingName}.`);
+            await fetchCurrentSettings(); // Re-fetch to update local state and reflect changes
+            await fetchSettings(token); // Also refresh the AuthContext settings
+    
+          } else {
+            const errorData = await response.json();
+            setError(`Failed to update setting: ${errorData.detail || response.statusText}`);
+            console.error(`useSettingsFormLogic (${formType}): Failed to update ${settingName}:`, errorData);
+          }
+        } catch (err) {
+          console.error(`useSettingsFormLogic (${formType}): Network error or failed to update setting:`, err);
+          setError('Network error or failed to update setting.');
         }
+
+    } else if (formType === 'device') {
         if (settingMetadata.admin_only) {
             setError(`"${settingMetadata.display_name}" is an admin-only setting and cannot be overridden by device.`);
             return;
         }
-        // For device settings, check if it exists, then PUT/POST
-        const existingDeviceSettingResponse = await fetch(`/api/devicesettings/?device_id=${deviceId}&name=${settingName}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const existingDeviceSettingData = await existingDeviceSettingResponse.json();
-
-        if (existingDeviceSettingData && existingDeviceSettingData.length > 0) {
-            apiEndpoint = `/api/devicesettings/${existingDeviceSettingData[0].id}`;
-            requestBody = { value: actualValueToSave };
-            // apiMethod remains 'PUT'
-        } else {
-            apiEndpoint = '/api/devicesettings/';
-            apiMethod = 'POST'; // Set to POST for new creation
-            requestBody = { user_id: user.id, device_id: deviceId, name: settingName, value: actualValueToSave };
+        
+        // Update LocalStorage
+        try {
+          const stored = localStorage.getItem('panti_device_settings');
+          let localSettings = stored ? JSON.parse(stored) : {};
+          localSettings[settingName] = actualValueToSave;
+          localStorage.setItem('panti_device_settings', JSON.stringify(localSettings));
+          
+          setMessage(`Device setting '${settingMetadata.display_name}' saved locally.`);
+          
+          // We don't need to re-fetch from API, but we should update the AuthContext if it reads from LS
+          // Since we can't modify AuthContext, we rely on the app reloading or context polling, 
+          // but calling fetchSettings might trigger a re-evaluation if it's set up that way.
+          await fetchSettings(token); 
+        } catch (e) {
+          console.error("Failed to save device setting to localStorage", e);
+          setError("Failed to save setting locally.");
         }
     }
+  }, [formType, user, token, isAdmin, isAuthenticated, deviceId, settingsList, fetchCurrentSettings, fetchSettings]);
+
+  // Handler to reset a device setting to global default
+  const handleResetSetting = useCallback(async (settingName) => {
+    if (formType !== 'device') return;
 
     try {
-      const response = await fetch(apiEndpoint, {
-        method: apiMethod,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (response.ok) {
-        setMessage(`Setting '${settingMetadata.display_name}' updated successfully!`);
-        console.log(`useSettingsFormLogic (${formType}): Successfully updated ${settingName}.`);
-        await fetchCurrentSettings(); // Re-fetch to update local state and reflect changes
-        await fetchSettings(token); // Also refresh the AuthContext settings
-
-      } else {
-        const errorData = await response.json();
-        setError(`Failed to update setting: ${errorData.detail || response.statusText}`);
-        console.error(`useSettingsFormLogic (${formType}): Failed to update ${settingName}:`, errorData);
-        console.error(`useSettingsFormLogic (${formType}): Response Status: ${response.status}, Body:`, errorData);
+      const stored = localStorage.getItem('panti_device_settings');
+      if (stored) {
+        let localSettings = JSON.parse(stored);
+        if (localSettings.hasOwnProperty(settingName)) {
+          delete localSettings[settingName];
+          localStorage.setItem('panti_device_settings', JSON.stringify(localSettings));
+          
+          setMessage(`Device setting reset to global default.`);
+          
+          // Refresh to pull global value back into state (and re-populate LS with it)
+          await fetchCurrentSettings();
+          await fetchSettings(token);
+        }
       }
-    } catch (err) {
-      console.error(`useSettingsFormLogic (${formType}): Network error or failed to update setting:`, err);
-      setError('Network error or failed to update setting.');
+    } catch (e) {
+      console.error("Failed to reset device setting", e);
+      setError("Failed to reset setting.");
     }
-  }, [formType, user, token, isAdmin, isAuthenticated, deviceId, settingsList, fetchCurrentSettings, fetchSettings, useDeviceSettings]);
-
-
-  // Toggle handler for the 'use_device_settings' global setting
-  const handleUseDeviceSettingsOverrideToggle = useCallback(async () => {
-    setMessage('');
-    setError('');
-
-    const newValue = !useDeviceSettingsOverrideEnabled;
-    localStorage.setItem('use_device_settings_override', newValue ? 'true' : 'false');
-    setUseDeviceSettingsOverrideEnabled(newValue);
-    setMessage(`'Use Device Specific Settings' set to ${newValue ? 'Enabled' : 'Disabled'}.`);
-
-    await fetchSettings(token);
-    await fetchCurrentSettings();
-  }, [useDeviceSettingsOverrideEnabled, fetchCurrentSettings, fetchSettings, token]);
+  }, [formType, fetchCurrentSettings, fetchSettings, token]);
 
   // Generic toggle handler for single boolean switches
   const handleBooleanToggle = useCallback((settingName) => () => {
@@ -325,13 +344,12 @@ function useSettingsFormLogic(formType, deviceId = null, useDeviceSettings) {
     switchStates,
     textInputStates,
     numberInputStates,
-    useDeviceSettings: useDeviceSettingsOverrideEnabled, // Export the new state
     handleBooleanToggle,
     handleTextInputChange,
     handleTextInputBlur,
     handleNumberInputChange,
     handleNumberInputBlur,
-    handleUseDeviceSettingsOverrideToggle, // Export the handler
+    handleResetSetting, // Export reset handler
     isAuthenticated, // Export for conditional rendering in components
     isAdmin // Export for conditional rendering in components
   };
