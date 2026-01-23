@@ -202,13 +202,14 @@ header {
   position: relative; /* Changed from sticky */
   top: 0;
   z-index: 10;
+  border-radius: 0;
 }
 
 footer {
   position: relative;
   bottom: 0;
   z-index: 10;
-  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  border-radius: 0;
   margin-top: 0.5rem;
   margin-bottom: 0;
   padding: 0;
@@ -459,6 +460,10 @@ nav input {
 
 .footer-slider {
   border-inline: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-inline: 1rem;
 }
 
 .footer-totop {
@@ -911,11 +916,19 @@ form .section-list .section-item .section-fields:nth-child(3) {
   background: unset;
 }
 
+.image-grid {
+  /* Center the inner grid content div horizontally */
+  display: flex;
+  justify-content: center;
+}
+
 .image-grid-container {
   height: 100%;
   width: 100%;
   overflow: auto;
   position: relative;
+  padding-inline: 0.25rem;
+  box-sizing: border-box;
 }
 
 .grid-status-message {
@@ -932,13 +945,14 @@ form .section-list .section-item .section-fields:nth-child(3) {
 }
 
 .image-card-outer {
-    padding: 0.5rem;
+    padding: 0.3rem;
+    box-sizing: border-box;
 }
 .image-card {
     height: auto;
     overflow: hidden;
     aspect-ratio: 1/1;
-    margin: 0.5rem;
+    margin: 0;
     padding: 0;
     border-radius: 0.5rem;
 }
@@ -1422,4 +1436,41 @@ form .section-list .section-item .section-fields:nth-child(3) {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+}
+
+.thumbnail-size-slider {
+  width: 100px;
+  height: 4px;
+  background: var(--color-primary);
+  border-radius: 2px;
+  outline: none;
+}
+
+.thumbnail-size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  cursor: pointer;
+  transition: background .15s ease-in-out;
+}
+
+.thumbnail-size-slider::-webkit-slider-thumb:hover {
+  background: var(--accent-secondary);
+}
+
+.thumbnail-size-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  cursor: pointer;
+  transition: background .15s ease-in-out;
+}
+
+.thumbnail-size-slider::-moz-range-thumb:hover {
+  background: var(--accent-secondary);
 }

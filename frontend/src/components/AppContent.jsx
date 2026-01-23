@@ -17,12 +17,16 @@ export function AppContent({
   currentView,
   setCurrentView,
 }) {
-  const { token, isAdmin } = useAuth();
+  const { token, isAdmin, settings } = useAuth();
 
   const [webSocketMessage, setWebSocketMessage] = useState([]);
   const [selectedImages, setSelectedImages] = useState(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [currentImages, setCurrentImages] = useState([]);
+  const [thumbnailSize, setThumbnailSize] = useState(() => {
+    const saved = localStorage.getItem('panti_thumbnail_size');
+    return saved ? parseInt(saved, 10) : 200;
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null);
@@ -32,6 +36,11 @@ export function AppContent({
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
   const gridRef = useRef(null);
   const outerGridRef = useRef(null);
+
+  const handleSetThumbnailSize = (size) => {
+    setThumbnailSize(size);
+    localStorage.setItem('panti_thumbnail_size', size);
+  };
 
   const handleScrollToTop = () => {
     outerGridRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -147,6 +156,7 @@ export function AppContent({
             setSelectedImages={setSelectedImages}
             openModal={openModal}
             onImagesLoaded={setCurrentImages}
+            thumbnailSize={thumbnailSize}
           />
         )}
         {currentView === 'trash' && (
@@ -182,6 +192,7 @@ export function AppContent({
                 setSelectedImages={setSelectedImages}
                 openModal={openModal}
                 onImagesLoaded={setCurrentImages}
+                thumbnailSize={thumbnailSize}
               />
             </div>
           </div>
@@ -200,7 +211,12 @@ export function AppContent({
         )}
       </AnimatePresence>
       <footer>
-        <FooterBar onScrollToTop={handleScrollToTop} />
+        <FooterBar
+          onScrollToTop={handleScrollToTop}
+          thumbnailSize={thumbnailSize}
+          setThumbnailSize={handleSetThumbnailSize}
+          maxThumbnailSize={settings?.thumb_size || 500}
+        />
       </footer>
     </>
   );

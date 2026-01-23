@@ -59,9 +59,10 @@ function ImageGrid({
   openModal,
   onImagesLoaded,
   gridRef: externalGridRef,
-  outerGridRef
+  outerGridRef,
+  thumbnailSize = 200
 }) {
-  const { token, settings } = useAuth();
+  const { token } = useAuth();
   const { searchTerm } = useSearch();
   const { filters } = useFilters();
   const queryClient = useQueryClient();
@@ -308,18 +309,16 @@ function ImageGrid({
 
   // Calculate column-related grid dimensions. These only depend on width and settings.
   const { columnCount, columnWidth, rowHeight } = useMemo(() => {
-    if (gridSize.width <= 0 || !settings?.thumb_size) {
+    if (gridSize.width <= 0) {
       return { columnCount: 0, columnWidth: 0, rowHeight: 0 };
     }
-    const gap = 0.5 * parseFloat(getComputedStyle(document.documentElement).fontSize);
-    const baseThumbSize = settings.thumb_size / 2;
-
-    const calculatedColumnCount = Math.max(1, Math.floor((gridSize.width + gap) / (baseThumbSize + gap)));
-    const calculatedColumnWidth = (gridSize.width - (calculatedColumnCount - 1) * gap) / calculatedColumnCount;
-    const calculatedRowHeight = calculatedColumnWidth; // Keep thumbnails square for consistent aspect ratio
+    const availableWidth = gridSize.width;
+    const calculatedColumnCount = Math.max(1, Math.round(availableWidth / thumbnailSize));
+    const calculatedColumnWidth = availableWidth / calculatedColumnCount;
+    const calculatedRowHeight = calculatedColumnWidth;
 
     return { columnCount: calculatedColumnCount, columnWidth: calculatedColumnWidth, rowHeight: calculatedRowHeight };
-  }, [gridSize.width, settings?.thumb_size]);
+  }, [gridSize.width, thumbnailSize]);
 
   // Calculate rowCount separately, as it depends on the number of images.
   const rowCount = useMemo(() => {
@@ -448,7 +447,7 @@ function ImageGrid({
           <Grid
             ref={gridRef}
             outerRef={outerGridRef}
-            className="image-grid"
+            className="image-grid hide-scrollbar"
             columnCount={columnCount}
             columnWidth={columnWidth}
             rowCount={rowCount} // rowCount can be 0, react-window handles this
