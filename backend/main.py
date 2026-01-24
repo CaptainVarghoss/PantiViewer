@@ -94,63 +94,87 @@ async def lifespan(app: FastAPI):
             # especially for the relationship linking below.
             db.refresh(db.query(models.Tag).filter_by(name='NSFW').first())
 
-        if not db.query(models.Setting).first():
-            print("Adding initial Settings...")
-            db.add(models.Setting(name='left_enabled', value='False', admin_only=False,
-                                 display_name='Enable Left Icons', description='Controls if the left icons are enabled.',
-                                 group='Appearance', input_type='switch'))
-            db.add(models.Setting(name='right_enabled', value='True', admin_only=False,
-                                 display_name='Enable Right Icons', description='Controls if the right icons are enabled.',
-                                 group='Appearance', input_type='switch'))
-            db.add(models.Setting(name='allow_signup', value='False', admin_only=True,
-                                 display_name='Allow New User Signup', description='If enabled, new users can register themselves. Admin only.',
-                                 group='Security', input_type='switch'))
-            db.add(models.Setting(name='allow_login', value='False', admin_only=True,
-                                 display_name='Allow User Login', description='If disabled, only admins can log in. Admin only.',
-                                 group='Security', input_type='switch'))
-            db.add(models.Setting(name='allow_tag_add', value='False', admin_only=True,
-                                 display_name='Allow Tag Add to Image', description='Allow users to add existing tags to images.',
-                                 group='Permissions', input_type='switch'))
-            db.add(models.Setting(name='allow_tag_remove', value='False', admin_only=True,
-                                 display_name='Allow Tag Remove from Image', description='Allow users to remove tags from images.',
-                                 group='Permissions', input_type='switch'))
-            db.add(models.Setting(name='allow_tag_create', value='False', admin_only=True,
-                                 display_name='Allow Tag Creation', description='Allow users to create new tags.',
-                                 group='Permissions', input_type='switch'))
-            db.add(models.Setting(name='allow_tag_delete', value='False', admin_only=True,
-                                 display_name='Allow Tag Deletion', description='Allow users to delete tags permanently.',
-                                 group='Permissions', input_type='switch'))
-            db.add(models.Setting(name='allow_tag_edit', value='False', admin_only=True,
-                                 display_name='Allow Tag Edit', description='Allow users to edit existing tags (name, color, etc.).',
-                                 group='Permissions', input_type='switch'))
-            db.add(models.Setting(name='allow_folder_tag_add', value='False', admin_only=True,
-                                 display_name='Allow Folder Tag Add', description='Allow users to add tags to folders.',
-                                 group='Permissions', input_type='switch'))
-            db.add(models.Setting(name='allow_folder_tag_remove', value='False', admin_only=True,
-                                 display_name='Allow Folder Tag Remove', description='Allow users to remove tags from folders.',
-                                 group='Permissions', input_type='switch'))
-            db.add(models.Setting(name='max_thumb_size', value='400', admin_only=True,
-                                 display_name='Max Thumbnail Size (px)', description='Max dimension for generated image thumbnails.',
-                                 group='Media', input_type='number'))
-            db.add(models.Setting(name='flyout', value='False', admin_only=True,
-                                 display_name='Enable Flyout Mode', description='Enable flyout mode for external media display.',
-                                 group='Flyout', input_type='switch'))
-            db.add(models.Setting(name='flyout_address', value='False', admin_only=True,
-                                 display_name='Flyout Server Address', description='Address for the flyout server if enabled.',
-                                 group='Flyout', input_type='text'))
-            db.add(models.Setting(name='thumb_size', value='200', admin_only=False,
-                                 display_name='Default Thumbnail Size', description='Size thumbnail images are display at by default. Can be changed with slider on the grid.',
-                                 group='Appearance', input_type='number'))
-            db.add(models.Setting(name='enable_previews', value='False', admin_only=False,
-                                 display_name='Enable Previews', description='Enable generation and display of larger image previews.',
-                                 group='Media', input_type='switch'))
-            db.add(models.Setting(name='preview_size', value='1024', admin_only=True,
-                                 display_name='Preview Size (px)', description='Max dimension for generated image previews.',
-                                 group='Media', input_type='number'))
-            db.add(models.Setting(name='theme', value='default', admin_only=False,
-                                 display_name='Default Theme', description='The default visual theme of the application (e.g., "default", "dark", "light").',
-                                 group='Appearance', input_type='text')) # Could be a dropdown in future
-            db.commit()
+        # Define default settings
+        default_settings = [
+            {'name': 'left_enabled', 'value': 'False', 'admin_only': False,
+             'display_name': 'Enable Left Icons', 'description': 'Controls if the left icons are enabled.',
+             'group': 'Appearance', 'input_type': 'switch'},
+            {'name': 'right_enabled', 'value': 'True', 'admin_only': False,
+             'display_name': 'Enable Right Icons', 'description': 'Controls if the right icons are enabled.',
+             'group': 'Appearance', 'input_type': 'switch'},
+            {'name': 'allow_signup', 'value': 'False', 'admin_only': True,
+             'display_name': 'Allow New User Signup', 'description': 'If enabled, new users can register themselves. Admin only.',
+             'group': 'Security', 'input_type': 'switch'},
+            {'name': 'allow_login', 'value': 'False', 'admin_only': True,
+             'display_name': 'Allow User Login', 'description': 'If disabled, only admins can log in. Admin only.',
+             'group': 'Security', 'input_type': 'switch'},
+            {'name': 'allow_tag_add', 'value': 'False', 'admin_only': True,
+             'display_name': 'Allow Tag Add to Image', 'description': 'Allow users to add existing tags to images.',
+             'group': 'Permissions', 'input_type': 'switch'},
+            {'name': 'allow_tag_remove', 'value': 'False', 'admin_only': True,
+             'display_name': 'Allow Tag Remove from Image', 'description': 'Allow users to remove tags from images.',
+             'group': 'Permissions', 'input_type': 'switch'},
+            {'name': 'allow_tag_create', 'value': 'False', 'admin_only': True,
+             'display_name': 'Allow Tag Creation', 'description': 'Allow users to create new tags.',
+             'group': 'Permissions', 'input_type': 'switch'},
+            {'name': 'allow_tag_delete', 'value': 'False', 'admin_only': True,
+             'display_name': 'Allow Tag Deletion', 'description': 'Allow users to delete tags permanently.',
+             'group': 'Permissions', 'input_type': 'switch'},
+            {'name': 'allow_tag_edit', 'value': 'False', 'admin_only': True,
+             'display_name': 'Allow Tag Edit', 'description': 'Allow users to edit existing tags (name, color, etc.).',
+             'group': 'Permissions', 'input_type': 'switch'},
+            {'name': 'allow_folder_tag_add', 'value': 'False', 'admin_only': True,
+             'display_name': 'Allow Folder Tag Add', 'description': 'Allow users to add tags to folders.',
+             'group': 'Permissions', 'input_type': 'switch'},
+            {'name': 'allow_folder_tag_remove', 'value': 'False', 'admin_only': True,
+             'display_name': 'Allow Folder Tag Remove', 'description': 'Allow users to remove tags from folders.',
+             'group': 'Permissions', 'input_type': 'switch'},
+            {'name': 'flyout', 'value': 'False', 'admin_only': True,
+             'display_name': 'Enable Flyout Mode', 'description': 'Enable flyout mode for external media display.',
+             'group': 'Flyout', 'input_type': 'switch'},
+            {'name': 'flyout_address', 'value': 'False', 'admin_only': True,
+             'display_name': 'Flyout Server Address', 'description': 'Address for the flyout server if enabled.',
+             'group': 'Flyout', 'input_type': 'text'},
+            {'name': 'thumb_size', 'value': '200', 'admin_only': False,
+             'display_name': 'Default Thumbnail Size', 'description': 'Size thumbnail images are display at by default. Can be changed with slider on the grid.',
+             'group': 'Thumbnails', 'input_type': 'number'},
+            {'name': 'max_thumb_size', 'value': '400', 'admin_only': True,
+             'display_name': 'Max Thumbnail Size (px)', 'description': 'Max dimension for generated image thumbnails.',
+             'group': 'Thumbnails', 'input_type': 'number'},
+            {'name': 'enable_previews', 'value': 'False', 'admin_only': False,
+             'display_name': 'Enable Previews', 'description': 'Enable generation and display of larger image previews.',
+             'group': 'Previews', 'input_type': 'switch'},
+            {'name': 'preview_size', 'value': '1024', 'admin_only': True,
+             'display_name': 'Preview Size (px)', 'description': 'Max dimension for generated image previews.',
+             'group': 'Previews', 'input_type': 'number'},
+            {'name': 'theme', 'value': 'default', 'admin_only': False,
+             'display_name': 'Default Theme', 'description': 'The default visual theme of the application (e.g., "default", "dark", "light").',
+             'group': 'Appearance', 'input_type': 'text'},
+        ]
+
+        print("Checking/Updating default Settings...")
+        existing_settings = {s.name: s for s in db.query(models.Setting).all()}
+
+        default_names = set()
+        for setting_data in default_settings:
+            name = setting_data['name']
+            default_names.add(name)
+            if name in existing_settings:
+                # Update existing setting metadata (excluding value)
+                setting = existing_settings[name]
+                for key, val in setting_data.items():
+                    if getattr(setting, key) != val:
+                        setattr(setting, key, val)
+            else:
+                # Create new setting
+                db.add(models.Setting(**setting_data))
+
+        # Remove settings that are no longer in the default list
+        for name, setting in existing_settings.items():
+            if name not in default_names:
+                print(f"Removing obsolete setting: {name}")
+                db.delete(setting)
+        db.commit()
 
         if not db.query(models.Filter).first():
             print("Adding initial Filter...")

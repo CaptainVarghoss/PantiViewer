@@ -19,9 +19,11 @@ export const AuthProvider = ({ children }) => {
   // Helper to parse setting values based on input_type
   const parseSettingValue = useCallback((value, input_type) => {
     if (input_type === 'switch') {
-      return value.toLowerCase() === 'true';
+      if (typeof value === 'boolean') return value;
+      return String(value).toLowerCase() === 'true';
     }
     if (input_type === 'number') {
+      if (typeof value === 'number') return value;
       const num = parseFloat(value);
       return isNaN(num) ? value : num; // Return original string if not a valid number
     }
@@ -59,7 +61,14 @@ export const AuthProvider = ({ children }) => {
           const stored = localStorage.getItem('panti_device_settings');
           if (stored) {
             const localSettings = JSON.parse(stored);
-            Object.assign(newSettingsMap, localSettings);
+            
+            // Merge local settings, but ensure they are parsed correctly according to metadata
+            Object.keys(localSettings).forEach(key => {
+              // Find metadata for this setting to know its type
+              const settingDef = data.find(s => s.name === key);
+              const val = localSettings[key];
+              newSettingsMap[key] = settingDef ? parseSettingValue(val, settingDef.input_type) : val;
+            });
           }
         } catch (e) {
           console.error("Error parsing local device settings", e);

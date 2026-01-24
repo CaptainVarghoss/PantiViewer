@@ -24,7 +24,10 @@ function useSettingsFormLogic(formType, deviceId = null) {
   const [numberInputStates, setNumberInputStates] = useState({});
 
   // Helper to convert string 'True'/'False' to boolean
-  const parseBooleanSetting = useCallback((value) => value?.toLowerCase() === 'true', []);
+  const parseBooleanSetting = useCallback((value) => {
+    if (typeof value === 'boolean') return value;
+    return String(value).toLowerCase() === 'true';
+  }, []);
   // Helper to convert string to number
   const parseNumberSetting = useCallback((value) => {
     const num = parseFloat(value);
@@ -185,13 +188,6 @@ function useSettingsFormLogic(formType, deviceId = null) {
         return;
     }
 
-    // Convert boolean/number to string for backend if necessary
-    if (settingMetadata.input_type === 'switch' && typeof valueToSave === 'boolean') {
-      actualValueToSave = valueToSave ? 'True' : 'False';
-    } else if (settingMetadata.input_type === 'number' && typeof valueToSave === 'number') {
-      actualValueToSave = String(valueToSave);
-    }
-
     // Determine API endpoint and payload based on formType
     if (formType === 'global') {
         if (!isAdmin) {
@@ -199,6 +195,14 @@ function useSettingsFormLogic(formType, deviceId = null) {
             console.warn(`useSettingsFormLogic (${formType}): Attempted to change global setting ${settingName} by non-admin.`);
             return;
         }
+
+        // Convert boolean/number to string for backend API
+        if (settingMetadata.input_type === 'switch' && typeof valueToSave === 'boolean') {
+          actualValueToSave = valueToSave ? 'True' : 'False';
+        } else if (settingMetadata.input_type === 'number' && typeof valueToSave === 'number') {
+          actualValueToSave = String(valueToSave);
+        }
+
         apiEndpoint = `/api/settings/${settingMetadata.id}`; // Update global setting by ID
         requestBody = { name: settingName, value: actualValueToSave };
 
@@ -266,14 +270,10 @@ function useSettingsFormLogic(formType, deviceId = null) {
   }, [formType, fetchCurrentSettings, fetchSettings, token]);
 
   // Generic toggle handler for single boolean switches
-  const handleBooleanToggle = useCallback((settingName) => () => {
-    setSwitchStates(prev => {
-      const currentValue = prev[settingName];
-      const newValue = !currentValue;
-      const newState = { ...prev, [settingName]: newValue };
-      handleUpdateSetting(settingName, newValue);
-      return newState;
-    });
+  const handleBooleanToggle = useCallback((settingName) => (e) => {
+    const newValue = e.target.checked;
+    setSwitchStates(prev => ({ ...prev, [settingName]: newValue }));
+    handleUpdateSetting(settingName, newValue);
   }, [handleUpdateSetting]);
 
   // Generic change handler for text inputs
