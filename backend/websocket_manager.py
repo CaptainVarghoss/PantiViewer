@@ -10,9 +10,9 @@ class WebSocketManager:
         # Connections for anonymous/unauthenticated users
         self.anonymous_connections: List[WebSocket] = []
         # Connections for authenticated non-admin users
-        self.user_connections: Dict[int, WebSocket] = {}
+        self.user_connections: Dict[int, List[WebSocket]] = {}
         # Connections for authenticated admin users
-        self.admin_connections: Dict[int, WebSocket] = {}
+        self.admin_connections: Dict[int, List[WebSocket]] = {}
         # Debouncing state
         self.public_debounce_task: Optional[asyncio.Task] = None
         self.admin_debounce_task: Optional[asyncio.Task] = None
@@ -24,10 +24,14 @@ class WebSocketManager:
         """
         if user:
             if user.admin:
-                self.admin_connections[user.id] = websocket
+                if user.id not in self.admin_connections:
+                    self.admin_connections[user.id] = []
+                self.admin_connections[user.id].append(websocket)
                 print(f"Admin client connected: {user.username} ({websocket.client.host})")
             else: # Non-admin user
-                self.user_connections[user.id] = websocket
+                if user.id not in self.user_connections:
+                    self.user_connections[user.id] = []
+                self.user_connections[user.id].append(websocket)
                 print(f"User client connected: {user.username} ({websocket.client.host})")
         else:
             self.anonymous_connections.append(websocket)
@@ -39,10 +43,16 @@ class WebSocketManager:
         """
         if user:
             if user.admin and user.id in self.admin_connections:
-                del self.admin_connections[user.id]
+                if websocket in self.admin_connections[user.id]:
+                    self.admin_connections[user.id].remove(websocket)
+                if not self.admin_connections[user.id]:
+                    del self.admin_connections[user.id]
                 print(f"Admin client disconnected: {user.username} ({websocket.client.host})")
             elif not user.admin and user.id in self.user_connections:
-                del self.user_connections[user.id]
+                if websocket in self.user_connections[user.id]:
+                    self.user_connections[user.id].remove(websocket)
+                if not self.user_connections[user.id]:
+                    del self.user_connections[user.id]
                 print(f"User client disconnected: {user.username} ({websocket.client.host})")
         else:
             if websocket in self.anonymous_connections:
@@ -121,7 +131,9 @@ class WebSocketManager:
         """
         Sends a JSON message to all connected clients (anonymous, users, and admins).
         """
-        all_connections = self.anonymous_connections + list(self.user_connections.values()) + list(self.admin_connections.values())
+        admin_sockets = [ws for sockets in self.admin_connections.values() for ws in sockets]
+        user_sockets = [ws for sockets in self.user_connections.values() for ws in sockets]
+        all_connections = self.anonymous_connections + user_sockets + admin_sockets
         # Use asyncio.gather for concurrent sending to all clients
         if all_connections:
             await asyncio.gather(*(self._send_json(conn, message) for conn in all_connections))
@@ -130,15 +142,18 @@ class WebSocketManager:
         """
         Sends a JSON message only to authenticated admin clients.
         """
-        for connection in self.admin_connections.values():
-            await self._send_json(connection, message)
+        for sockets in self.admin_connections.values():
+            for connection in sockets:
+                await self._send_json(connection, message)
 
     async def broadcast_to_users_json(self, message: dict):
         """
         Sends a JSON message to all authenticated clients (admins and non-admins).
         """
         print("Broadcasting message to all authenticated users.")
-        all_user_connections = list(self.user_connections.values()) + list(self.admin_connections.values())
+        admin_sockets = [ws for sockets in self.admin_connections.values() for ws in sockets]
+        user_sockets = [ws for sockets in self.user_connections.values() for ws in sockets]
+        all_user_connections = user_sockets + admin_sockets
         for connection in all_user_connections:
             await self._send_json(connection, message)
 
@@ -147,8 +162,9 @@ class WebSocketManager:
         Sends a JSON message only to authenticated non-admin clients.
         """
         print("Broadcasting message to non-admin clients.")
-        for connection in self.user_connections.values():
-            await self._send_json(connection, message)
+        for sockets in self.user_connections.values():
+            for connection in sockets:
+                await self._send_json(connection, message)
 
     async def send_personal_json(self, websocket: WebSocket, message: dict):
         """
@@ -157,7 +173,9 @@ class WebSocketManager:
         await self._send_json(websocket, message)
 
     def get_all_connections(self) -> List[WebSocket]:
-        return self.anonymous_connections + list(self.user_connections.values()) + list(self.admin_connections.values())
+        admin_sockets = [ws for sockets in self.admin_connections.values() for ws in sockets]
+        user_sockets = [ws for sockets in self.user_connections.values() for ws in sockets]
+        return self.anonymous_connections + user_sockets + admin_sockets
 
 
 # Create a single instance of the manager to be used across the application
