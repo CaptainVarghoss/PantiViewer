@@ -64,8 +64,8 @@ const ContextMenu = ({
         ];
       } else {
         const items = [
-          { label: `Delete ${count} Selected`, action: "delete_selected" },
           { label: `Move ${count} Selected`, action: "move_selected" },
+          { label: `Delete ${count} Selected`, action: "delete_selected" },
         ];
         if (count > 0) items.unshift({ label: `Edit Tags for ${count} Selected`, action: "edit_tags_selected" });
         return items;
