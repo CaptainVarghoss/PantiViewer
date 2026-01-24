@@ -30,6 +30,7 @@ function DeviceSpecificSettingsForm({ onBack, onClose }) {
     handleNumberInputBlur,
     handleResetSetting,
     isAuthenticated,
+    isSettingModified,
   } = useSettingsFormLogic('device', deviceId);
 
   /**
@@ -80,10 +81,10 @@ function DeviceSpecificSettingsForm({ onBack, onClose }) {
                   };
 
                   const renderResetButton = () => {
+                    if (!isSettingModified(setting.name)) return null;
                     return (
                       <button 
-                        className="btn-reset" 
-                        style={{marginLeft: '10px'}}
+                        className="btn-reset"
                         onClick={() => handleResetSetting(setting.name)}
                         title="Reset to global default"
                       >

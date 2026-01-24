@@ -306,6 +306,27 @@ function useSettingsFormLogic(formType, deviceId = null) {
       }
   }, [handleUpdateSetting]);
 
+  // Helper to check if a setting is different from the global default
+  const isSettingModified = useCallback((settingName) => {
+    const setting = settingsList.find(s => s.name === settingName);
+    if (!setting) return false;
+
+    if (setting.input_type === 'switch') {
+      const globalValue = parseBooleanSetting(setting.value);
+      const currentValue = switchStates[settingName];
+      return globalValue !== currentValue;
+    }
+    if (setting.input_type === 'number') {
+      const globalValue = parseNumberSetting(setting.value);
+      const currentValue = parseNumberSetting(numberInputStates[settingName]);
+      return globalValue !== currentValue;
+    }
+    // Text
+    const globalValue = setting.value;
+    const currentValue = textInputStates[settingName];
+    return globalValue !== currentValue;
+  }, [settingsList, switchStates, numberInputStates, textInputStates, parseBooleanSetting, parseNumberSetting]);
+
   // Group settings by their 'group' property for rendering
   const groupedSettings = useMemo(() => {
     const groups = {};
@@ -334,7 +355,8 @@ function useSettingsFormLogic(formType, deviceId = null) {
     handleNumberInputBlur,
     handleResetSetting, // Export reset handler
     isAuthenticated, // Export for conditional rendering in components
-    isAdmin // Export for conditional rendering in components
+    isAdmin, // Export for conditional rendering in components
+    isSettingModified
   };
 }
 
