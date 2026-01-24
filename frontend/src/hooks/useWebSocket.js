@@ -40,7 +40,7 @@ export function useWebSocket(baseUrl, token, isAdmin, onMessage) {
                     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
                         ws.current.send(JSON.stringify({ type: 'ping' }));
                     }
-                }, 30000); // every 30 seconds
+                }, 20000); // every 30 seconds
             };
 
             ws.current.onmessage = (event) => {
