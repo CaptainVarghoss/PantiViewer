@@ -376,7 +376,7 @@ function FilterManager({ isAdmin }) {
                                                     />
                                                 </div>
                                                 <div className="form-group form-group-full">
-                                                    <label for="search_terms">Search Terms</label>
+                                                    <label htmlFor="search_terms">Search Terms</label>
                                                     <textarea
                                                         rows="3"
                                                         value={filter.search_terms || ''}

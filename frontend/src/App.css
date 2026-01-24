@@ -514,6 +514,10 @@ nav input {
   border-bottom: 1px solid var(--border-color);
 }
 
+#change-password-form #username {
+  display: none;
+}
+
 .form-input-base:focus {
     outline: none;
     border-color: var(--accent-primary);

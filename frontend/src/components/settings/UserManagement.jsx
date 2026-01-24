@@ -46,28 +46,11 @@ function UserManagement() {
         }
     }, [token, isAdmin]);
 
-    const fetchDeviceIds = useCallback(async () => {
-        try {
-            const response = await fetch(`/api/devicesettings/?target_user_id=${user.id}`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
-            if (!response.ok) throw new Error('Failed to fetch device settings.');
-            const data = await response.json();
-            // Extract unique device IDs from the settings
-            const uniqueIds = [...new Set(data.map(setting => setting.device_id))];
-            setDeviceIds(uniqueIds);
-        } catch (err) {
-            setError(err.message);
-        }
-    }, [token, user]);
-
     useEffect(() => {
-        // Both admins and regular users should see their devices
-        fetchDeviceIds();
         if (isAdmin) {
             fetchAllUsers();
         }
-    }, [fetchAllUsers, fetchDeviceIds, isAdmin]);
+    }, [fetchAllUsers, isAdmin]);
 
     const handleInputChange = (id, field, value) => {
         setEditableUsers(prev =>
@@ -183,17 +166,18 @@ function UserManagement() {
                 <div className="section-header">
                     <h3>My Account ({user?.username})</h3>
                 </div>
-                <form onSubmit={handleChangePassword}>
+                <form id='change-password-form' onSubmit={handleChangePassword}>
                     <div className="section-item">
                         <div className="section-row">
                             <div className="section-fields">
                                 <div className="form-group">
-                                    <label>New Password</label>
-                                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="form-input-base" required />
+                                    <input id='username' autoComplete='username' type='text' readOnly value={user.username} />
+                                    <label htmlFor='new-password'>New Password</label>
+                                    <input id='new-password' autoComplete='new-password' type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="form-input-base" required />
                                 </div>
                                 <div className="form-group">
-                                    <label>Confirm New Password</label>
-                                    <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="form-input-base" required />
+                                    <label htmlFor='confirm-password'>Confirm New Password</label>
+                                    <input id='confirm-password' autoComplete='confirm-password' type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="form-input-base" required />
                                 </div>
                             </div>
                         </div>
@@ -204,34 +188,6 @@ function UserManagement() {
                     {passwordChangeMessage && <p className="status-text" style={{ color: 'var(--accent-green)' }}>{passwordChangeMessage}</p>}
                     {passwordChangeError && <p className="error-text">{passwordChangeError}</p>}
                 </form>
-            </div>
-
-            <div className="section-container">
-                <div className="section-header">
-                    <h3>My Devices</h3>
-                </div>
-                <div className="section-list">
-                    {deviceIds.length > 0 ? deviceIds.map(id => (
-                        <div key={id} className="section-item">
-                            <div className="section-row">
-                                <div className="section-fields">
-                                    <p><strong>Device ID:</strong> {id}</p>
-                                </div>
-                                <div className="section-fields">
-                                    <button
-                                        onClick={() => handleDeleteDeviceClick(id)}
-                                        className="btn-base btn-red icon-button"
-                                        title="Clear settings for this device"
-                                    >
-                                        <MdDelete size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )) : (
-                        <p className="status-text">No device-specific settings have been saved for this account.</p>
-                    )}
-                </div>
             </div>
 
             {isAdmin && (
@@ -259,9 +215,10 @@ function UserManagement() {
                                         <div className="section-fields section-fields-toggles">
                                             <div className="checkbox-container">
                                                 <span className="checkbox-label">Admin</span>
-                                                <label className="checkbox-label">
+                                                <label htmlFor='admin-checkbox' className="checkbox-label">
                                                     <input
                                                         type="checkbox"
+                                                        id='admin-checkbox'
                                                         className="checkbox-base"
                                                         checked={u.admin}
                                                         onChange={(e) => handleInputChange(u.id, 'admin', e.target.checked)}
@@ -271,9 +228,10 @@ function UserManagement() {
                                             </div>
                                             <div className="checkbox-container">
                                                 <span className="checkbox-label">Login Allowed</span>
-                                                <label className="checkbox-label">
+                                                <label htmlFor='login-checkbox' className="checkbox-label">
                                                     <input
                                                         type="checkbox"
+                                                        id='login-checkbox'
                                                         className="checkbox-base"
                                                         checked={u.login_allowed}
                                                         onChange={(e) => handleInputChange(u.id, 'login_allowed', e.target.checked)}
