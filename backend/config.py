@@ -48,16 +48,6 @@ def generate_default_config():
         'SQLITE_DB_PATH': ''
     }
 
-    # --- Media Section ---
-    default_config['Media'] = {
-        '# Thumbnail and preview base size.': None,
-        '# These should not need to be changed.'
-        '# Max dimension (width or height) for generated thumbnails in pixels.': None,
-        'THUMBNAIL_SIZE': '400',
-        '# Max dimension for generated previews in pixels.': None,
-        'PREVIEW_SIZE': '1024'
-    }
-
     with open(USER_CONFIG_FILE, 'w') as configfile:
         configfile.write("# Panti Viewer User Configuration File\n")
         configfile.write("# This file is for user-specific settings. It overrides the application defaults.\n")

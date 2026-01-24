@@ -356,10 +356,9 @@ def generate_thumbnail_in_background(
     loop: Optional[asyncio.AbstractEventLoop] = None, # Add loop parameter
 ):
     # Use a short-lived session to get settings
-    thumb_size = config.THUMBNAIL_SIZE
     try:
         with database.SessionLocal() as db:
-            thumb_size_setting = db.query(models.Setting).filter_by(name='thumb_size').first()
+            thumb_size_setting = db.query(models.Setting).filter_by(name='max_thumb_size').first()
             if thumb_size_setting and thumb_size_setting.value:
                 thumb_size = int(thumb_size_setting.value)
     except Exception as e:
