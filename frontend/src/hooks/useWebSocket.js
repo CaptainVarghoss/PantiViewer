@@ -11,6 +11,7 @@ export function useWebSocket(baseUrl, token, isAdmin, onMessage) {
     const ws = useRef(null);
     const messageHandler = useRef(null);
     const pingInterval = useRef(null);
+    const reconnectTimeout = useRef(null);
 
     messageHandler.current = onMessage;
 
@@ -64,7 +65,7 @@ export function useWebSocket(baseUrl, token, isAdmin, onMessage) {
                 setIsConnected(false);
                 clearInterval(pingInterval.current); // Stop pinging
                 // Simple auto-reconnect logic
-                setTimeout(connect, 3000);
+                reconnectTimeout.current = setTimeout(connect, 3000);
             };
 
             ws.current.onerror = (error) => {
@@ -78,6 +79,9 @@ export function useWebSocket(baseUrl, token, isAdmin, onMessage) {
         // Cleanup on component unmount
         return () => {
             clearInterval(pingInterval.current);
+            if (reconnectTimeout.current) {
+                clearTimeout(reconnectTimeout.current);
+            }
             if (ws.current) {
                 // Prevent reconnection attempts when the component unmounts
                 ws.current.onclose = null;
