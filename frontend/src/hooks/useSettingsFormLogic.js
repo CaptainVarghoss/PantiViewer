@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext';
  * @returns {object} An object containing states and handlers needed by the settings forms.
  */
 function useSettingsFormLogic(formType, deviceId = null) {
-  const { user, token, isAdmin, isAuthenticated, loading: authLoading, fetchSettings, settings } = useAuth();
+  const { user, token, isAdmin, isAuthenticated, loading: authLoading, fetchSettings, settings, saveLocalSetting } = useAuth();
 
   const [settingsList, setSettingsList] = useState([]); // List of full setting objects (Global or Device-accessible)
   const [loadingLocal, setLoadingLocal] = useState(true);
@@ -87,9 +87,6 @@ function useSettingsFormLogic(formType, deviceId = null) {
           } catch (e) {
             console.error("Failed to parse local device settings", e);
           }
-          
-          // Ensure the override flag is always on for device settings
-          localStorage.setItem('use_device_settings_override', 'true');
         }
 
         // Populate initial states based on the values in rawData
@@ -237,25 +234,11 @@ function useSettingsFormLogic(formType, deviceId = null) {
             return;
         }
         
-        // Update LocalStorage
-        try {
-          const stored = localStorage.getItem('panti_device_settings');
-          let localSettings = stored ? JSON.parse(stored) : {};
-          localSettings[settingName] = actualValueToSave;
-          localStorage.setItem('panti_device_settings', JSON.stringify(localSettings));
-          
-          setMessage(`Device setting '${settingMetadata.display_name}' saved locally.`);
-          
-          // We don't need to re-fetch from API, but we should update the AuthContext if it reads from LS
-          // Since we can't modify AuthContext, we rely on the app reloading or context polling, 
-          // but calling fetchSettings might trigger a re-evaluation if it's set up that way.
-          await fetchSettings(token); 
-        } catch (e) {
-          console.error("Failed to save device setting to localStorage", e);
-          setError("Failed to save setting locally.");
-        }
+        // Update LocalStorage via AuthContext helper
+        saveLocalSetting(settingName, actualValueToSave);
+        setMessage(`Device setting '${settingMetadata.display_name}' saved locally.`);
     }
-  }, [formType, user, token, isAdmin, isAuthenticated, deviceId, settingsList, fetchCurrentSettings, fetchSettings]);
+  }, [formType, user, token, isAdmin, isAuthenticated, deviceId, settingsList, fetchCurrentSettings, fetchSettings, saveLocalSetting]);
 
   // Handler to reset a device setting to global default
   const handleResetSetting = useCallback(async (settingName) => {

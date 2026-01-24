@@ -60,15 +60,18 @@ function ImageGrid({
   onImagesLoaded,
   gridRef: externalGridRef,
   outerGridRef,
-  thumbnailSize = 200
+  thumbnailSize: initialThumbnailSize = 200
 }) {
-  const { token } = useAuth();
+  const { token, settings } = useAuth();
   const { searchTerm } = useSearch();
   const { filters } = useFilters();
   const queryClient = useQueryClient();
   const containerRef = useRef(null);
   const internalGridRef = useRef(null);
   const gridRef = externalGridRef || internalGridRef;
+
+  // Use the unified settings for thumbnail size, falling back to prop or default
+  const thumbnailSize = parseInt(settings.thumb_size, 10) || initialThumbnailSize;
 
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
 

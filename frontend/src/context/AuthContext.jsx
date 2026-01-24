@@ -4,16 +4,6 @@ const AuthContext = createContext(null);
 
 export const useAuth = () => useContext(AuthContext);
 
-// Fallback function for crypto.randomUUID()
-const generateFallbackUUID = () => {
-  // A simple, generally unique enough ID for client-side device tracking
-  // Not a true UUIDv4, but sufficient for this purpose if crypto.randomUUID is absent.
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
-
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(null);
@@ -21,27 +11,6 @@ export const AuthProvider = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true); // Initial loading for auth status
   const [error, setError] = useState(null);
-
-  const [deviceId, setDeviceId] = useState(() => {
-    const storedDeviceId = localStorage.getItem('deviceId');
-    if (storedDeviceId) {
-      return storedDeviceId;
-    }
-    // Use crypto.randomUUID() if available, otherwise use fallback
-    const newDeviceId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-      ? crypto.randomUUID()
-      : generateFallbackUUID();
-    localStorage.setItem('deviceId', newDeviceId);
-    return newDeviceId;
-  });
-
-  // State to manage the 'use_device_settings' toggle, specific to the device form
-  // This will control if device overrides are active or if global settings are read-only.
-  const [useDeviceSettings, setUseDeviceSettings] = useState(() => {
-    // Initialize from localStorage
-    const storedValue = localStorage.getItem('use_device_settings_override');
-    return storedValue === 'true';
-  });
 
   // State to hold all tiered settings with metadata
   const [settings, setSettings] = useState({}); // Tiered settings (name: value)
@@ -69,12 +38,7 @@ export const AuthProvider = ({ children }) => {
       return;
     }
     try {
-      // The endpoint now correctly depends on the `useDeviceSettings` state.
-      const endpoint = useDeviceSettings
-        ? `/api/settings/?device_id=${deviceId}`
-        : `/api/settings/`;
-
-      const response = await fetch(endpoint, {
+      const response = await fetch(`/api/settings/`, {
         headers: {
           'Authorization': `Bearer ${authToken}` // Use provided token for this fetch
         }
@@ -89,7 +53,19 @@ export const AuthProvider = ({ children }) => {
         data.forEach(setting => {
           newSettingsMap[setting.name] = parseSettingValue(setting.value, setting.input_type);
         });
-        setSettings(newSettingsMap); // Store the processed values
+
+        // Merge device-specific settings from localStorage
+        try {
+          const stored = localStorage.getItem('panti_device_settings');
+          if (stored) {
+            const localSettings = JSON.parse(stored);
+            Object.assign(newSettingsMap, localSettings);
+          }
+        } catch (e) {
+          console.error("Error parsing local device settings", e);
+        }
+
+        setSettings(newSettingsMap); // Store the processed and merged values
       } else {
         console.error("Failed to fetch settings:", response.status, response.statusText);
         // If the token is invalid or unauthorized, it might indicate a session issue.
@@ -100,10 +76,8 @@ export const AuthProvider = ({ children }) => {
       console.error("Network error fetching settings:", err);
       setError("Network error fetching settings.");
     }
-  }, [deviceId, parseSettingValue, useDeviceSettings]); // Add useDeviceSettings to dependencies
+  }, [parseSettingValue]);
 
-  // This new effect will specifically listen for changes in `useDeviceSettings`
-  // and trigger a settings refresh. This is the key to making the toggle work globally.
   useEffect(() => {
     // We only want to refetch if the user is already authenticated.
     // On initial load, the main checkAuthStatus effect handles the first fetch.
@@ -111,8 +85,22 @@ export const AuthProvider = ({ children }) => {
     if (currentToken) {
       fetchSettings(currentToken);
     }
-  }, [useDeviceSettings, fetchSettings]); // Re-run when useDeviceSettings changes
+  }, [fetchSettings]);
 
+  // Helper to save a local setting and update state immediately
+  const saveLocalSetting = useCallback((key, value) => {
+    try {
+      const stored = localStorage.getItem('panti_device_settings');
+      let localSettings = stored ? JSON.parse(stored) : {};
+      localSettings[key] = value;
+      localStorage.setItem('panti_device_settings', JSON.stringify(localSettings));
+
+      // Update the settings state immediately
+      setSettings(prev => ({ ...prev, [key]: value }));
+    } catch (e) {
+      console.error("Failed to save local setting", e);
+    }
+  }, []);
 
 
   // The main login function - now handles the API calls
@@ -245,24 +233,17 @@ export const AuthProvider = ({ children }) => {
     isAdmin,
     loading,
     error,
-    deviceId,
     settings, // Tiered settings (name: value map)
     rawSettingsList, // Full list of setting objects with metadata
     login, // The centralized login function
     logout,
     fetchSettings, // Expose fetchSettings for manual refresh if needed
-    useDeviceSettings,
-    setUseDeviceSettings, // Expose the setter function
-  }), [token, user, isAuthenticated, isAdmin, loading, error, deviceId, settings, rawSettingsList, login, logout, fetchSettings, useDeviceSettings]);
+    saveLocalSetting // Expose helper to save local settings
+  }), [token, user, isAuthenticated, isAdmin, loading, error, settings, rawSettingsList, login, logout, fetchSettings, saveLocalSetting]);
 
   return (
     <AuthContext.Provider value={{
       ...contextValue,
-      // Create a new handler that updates both state and localStorage
-      handleUseDeviceSettingsToggle: (newValue) => {
-        localStorage.setItem('use_device_settings_override', newValue);
-        setUseDeviceSettings(newValue);
-      }
     }}>
       {children}
     </AuthContext.Provider>
