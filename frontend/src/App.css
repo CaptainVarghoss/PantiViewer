@@ -191,7 +191,7 @@ p {
 header, section, footer {
     background-color: var(--bg-header);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+    border-radius: var(--radius-xl);
     margin-bottom: 0.5rem;
     padding: 0.5rem;
     border: 1px solid var(--border-color);
@@ -472,7 +472,7 @@ nav input {
 
 /* --- FORM ELEMENT STYLING --- */
 .form-group {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     display: flex;
 }
 
@@ -487,13 +487,13 @@ nav input {
     display: block;
     font-size: 0.875rem;
     font-weight: 500;
-    margin-bottom: 0.5rem;
     color: var(--text-muted);
 }
 
 .form-input-base {
     width: 100%;
     padding: 0.5rem;
+    margin-bottom: 0.5rem;
     border-radius: 0.75rem;
     background-color: var(--color-primary);
     color: var(--shadow-color);
@@ -507,6 +507,11 @@ nav input {
 
 #settings .form-input-base {
     width: unset;
+}
+
+#settings .form-group {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .form-input-base:focus {
@@ -543,7 +548,6 @@ input:disabled {
 }
 
 .checkbox-label {
-    margin-left: 0.75rem;
     font-size: 0.875rem;
     font-weight: 500;
     color: var(--text-muted);

@@ -85,21 +85,21 @@ function GlobalSettingsForm() {
                 switch (setting.input_type) {
                   case 'switch':
                     return (
-                      <div className="checkbox-container">
-                        <span className="checkbox-label">
+                      <>
+                        <label htmlFor={`global-${setting.name}`} className="checkbox-label form-label">
                             {commonProps.label}
-                        </span>
-                        <label className="checkbox-label">
+                        </label>
                             <input type="checkbox"
-                                className='checkbox-base'
+                                id={`global-${setting.name}`}
+                                className='checkbox-base form-input-base'
                                 checked={switchStates[setting.name] || false}
                                 onChange={
                                   setting.name === 'left_enabled' || setting.name === 'right_enabled'
                                     ? handleNavToggle(setting.name)
                                     : handleBooleanToggle(setting.name)
-                                } />
-                        </label>
-                      </div>
+                                } 
+                            />
+                      </>
                     );
                   case 'number':
                     return (
