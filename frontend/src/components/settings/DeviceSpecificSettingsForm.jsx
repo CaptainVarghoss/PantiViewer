@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import useSettingsFormLogic from '../../hooks/useSettingsFormLogic';
+import * as MdIcons from 'react-icons/md';
 
 /**
  * Component for managing device-specific user settings.
@@ -81,12 +82,12 @@ function DeviceSpecificSettingsForm({ onBack, onClose }) {
                   const renderResetButton = () => {
                     return (
                       <button 
-                        className="btn-base btn-small btn-red" 
+                        className="btn-reset" 
                         style={{marginLeft: '10px'}}
                         onClick={() => handleResetSetting(setting.name)}
                         title="Reset to global default"
                       >
-                        Reset
+                      <MdIcons.MdRestartAlt size={18} />
                       </button>
                     );
                   };
@@ -94,23 +95,22 @@ function DeviceSpecificSettingsForm({ onBack, onClose }) {
                   switch (setting.input_type) {
                     case 'switch':
                       return (
-                        <div className="checkbox-container">
-                            <span className="checkbox-label">
+                        <>
+                            <label className="checkbox-label form-label">
                                 {commonProps.label}
-                            </span>
-                            {renderResetButton()}
-                            <label className="checkbox-label">
-                                <input type="checkbox"
-                                    className='checkbox-base'
-                                    checked={switchStates[setting.name] || false}
-                                    disabled={commonProps.disabled}
-                                    onChange={
-                                      setting.name === 'left_enabled' || setting.name === 'right_enabled'
-                                        ? handleNavToggle(setting.name)
-                                        : handleBooleanToggle(setting.name)
-                                    } />
+                                {renderResetButton()}
                             </label>
-                        </div>
+                            <input type="checkbox"
+                                className='checkbox-base form-input-base'
+                                checked={switchStates[setting.name] || false}
+                                disabled={commonProps.disabled}
+                                onChange={
+                                  setting.name === 'left_enabled' || setting.name === 'right_enabled'
+                                    ? handleNavToggle(setting.name)
+                                    : handleBooleanToggle(setting.name)
+                                }
+                            />
+                        </>
                       );
                     case 'number':
                       return (

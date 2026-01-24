@@ -187,6 +187,13 @@ p {
     color: var(--accent-yellow); 
 }
 
+.btn-reset {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--accent-green);
+}
+
 /* --- HEADER/NAVIGATION --- */
 header, section, footer {
     background-color: var(--bg-header);
