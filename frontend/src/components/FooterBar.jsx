@@ -14,8 +14,7 @@ function FooterBar({ onScrollToTop }) {
     
     return (
         <div className='footer-bar-container'>
-            <div className='footer-version'>Panti Viewer v. 0.0.1b</div>
-            <div className='footer-buttons'>Something?</div>
+            <div className='footer-version'>Panti Viewer v.0.0.1b</div>
             <div className='footer-slider'>
                 <MdIcons.MdPhotoSizeSelectSmall title="Smaller thumbnails" />
                 <input

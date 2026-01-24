@@ -102,6 +102,12 @@ async def lifespan(app: FastAPI):
             {'name': 'right_enabled', 'value': 'True', 'admin_only': False,
              'display_name': 'Enable Right Icons', 'description': 'Controls if the right icons are enabled.',
              'group': 'Appearance', 'input_type': 'switch'},
+            {'name': 'theme', 'value': 'default', 'admin_only': False,
+             'display_name': 'Default Theme', 'description': 'The default visual theme of the application (e.g., "default", "dark", "light").',
+             'group': 'Appearance', 'input_type': 'text'},
+            {'name': 'enable_pwa', 'value': 'False', 'admin_only': False,
+             'display_name': 'Enable PWA', 'description': 'Enables PWA mode for mobile devices. Recommended to only enable this on phones/tablets.',
+             'group': 'Appearance', 'input_type': 'switch'},
             {'name': 'allow_signup', 'value': 'False', 'admin_only': True,
              'display_name': 'Allow New User Signup', 'description': 'If enabled, new users can register themselves. Admin only.',
              'group': 'Security', 'input_type': 'switch'},
@@ -147,9 +153,7 @@ async def lifespan(app: FastAPI):
             {'name': 'preview_size', 'value': '1024', 'admin_only': True,
              'display_name': 'Preview Size (px)', 'description': 'Max dimension for generated image previews.',
              'group': 'Previews', 'input_type': 'number'},
-            {'name': 'theme', 'value': 'default', 'admin_only': False,
-             'display_name': 'Default Theme', 'description': 'The default visual theme of the application (e.g., "default", "dark", "light").',
-             'group': 'Appearance', 'input_type': 'text'},
+            
         ]
 
         print("Checking/Updating default Settings...")

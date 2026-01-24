@@ -64,6 +64,22 @@ export function AppContent({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  useEffect(() => {
+    const isPwaEnabled = settings?.enable_pwa === true || settings?.enable_pwa === 'True';
+    if (isPwaEnabled) {
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = '/manifest.json';
+      document.head.appendChild(link);
+
+      return () => {
+        if (document.head.contains(link)) {
+          document.head.removeChild(link);
+        }
+      };
+    }
+  }, [settings?.enable_pwa]);
+
   const openModal = (type, newProps) => {
     setModalType(type);
     if (type === 'moveFiles') {

@@ -64,7 +64,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
     display: flex;
     flex-direction: column;
     width: var(--width-main);
-    height: 100vh;
+    height: 100dvh;
     background-color: var(--bg-page);
     font-family: 'Inter', sans-serif;
     color: var(--shadow-color);
