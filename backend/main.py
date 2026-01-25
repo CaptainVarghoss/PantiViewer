@@ -231,7 +231,7 @@ async def lifespan(app: FastAPI):
         db.close()
 
     # Start the file watcher in a background thread
-    print("Starting file watcher thread...")
+    print("Starting file watcher thread...", flush=True)
     watcher_thread = threading.Thread(
         target=start_file_watcher, args=(database.main_event_loop,), daemon=True
     )

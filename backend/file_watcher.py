@@ -6,7 +6,7 @@ from typing import Dict, List
 
 from sqlalchemy.orm import Session
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver as Observer
 
 import database
 import image_processor
@@ -147,46 +147,49 @@ class ImageChangeEventHandler(FileSystemEventHandler):
 def start_file_watcher(loop: asyncio.AbstractEventLoop):
     """Starts the file watcher in a background thread."""
     global observer
-    if observer is not None:
-        print("File Watcher: Already running.")
-        return
-    
-    print("File watcher starting...")
-    db = database.SessionLocal()
     try:
-        all_paths = get_watched_paths(db)
-    finally:
-        db.close()
+        if observer is not None:
+            print("File Watcher: Already running.", flush=True)
+            return
+        
+        print("File watcher starting...", flush=True)
+        db = database.SessionLocal()
+        try:
+            all_paths = get_watched_paths(db)
+        finally:
+            db.close()
 
-    if not all_paths:
-        print("File Watcher: No paths configured to watch.")
-        return
+        if not all_paths:
+            print("File Watcher: No paths configured to watch.", flush=True)
+            return
 
-    # --- OPTIMIZATION ---
-    # Reduce redundant watches by finding only the top-level directories.
-    # For example, if we have ['/a/b', '/a/b/c'], we only need to watch '/a/b' recursively.
-    
-    # Sort paths to ensure parent directories come before their children.
-    all_paths.sort()
-    
-    paths_to_watch = []
-    for path in all_paths:
-        # Check if the current path is a sub-directory of a path we've already decided to watch.
-        if not any(path.startswith(p.rstrip(os.sep) + os.sep) for p in paths_to_watch):
-            paths_to_watch.append(path)
+        # --- OPTIMIZATION ---
+        # Reduce redundant watches by finding only the top-level directories.
+        # For example, if we have ['/a/b', '/a/b/c'], we only need to watch '/a/b' recursively.
+        
+        # Sort paths to ensure parent directories come before their children.
+        all_paths.sort()
+        
+        paths_to_watch = []
+        for path in all_paths:
+            # Check if the current path is a sub-directory of a path we've already decided to watch.
+            if not any(path.startswith(p.rstrip(os.sep) + os.sep) for p in paths_to_watch):
+                paths_to_watch.append(path)
 
-    event_handler = ImageChangeEventHandler(loop)
-    observer = Observer()
+        event_handler = ImageChangeEventHandler(loop)
+        observer = Observer()
 
-    for path in paths_to_watch:
-        if os.path.exists(path):
-            print(f"File Watcher: Watching directory '{path}'")
-            observer.schedule(event_handler, path, recursive=True)
-        else:
-            print(f"File Watcher: Path '{path}' does not exist. Skipping.")
+        for path in paths_to_watch:
+            if os.path.exists(path):
+                print(f"File Watcher: Watching directory '{path}'", flush=True)
+                observer.schedule(event_handler, path, recursive=True)
+            else:
+                print(f"File Watcher: Path '{path}' does not exist. Skipping.", flush=True)
 
-    observer.start()
-    print(f"File watcher is running in background, monitoring {len(paths_to_watch)} top-level path(s).")
+        observer.start()
+        print(f"File watcher is running in background, monitoring {len(paths_to_watch)} top-level path(s).", flush=True)
+    except Exception as e:
+        print(f"File Watcher: Error starting watcher: {e}", flush=True)
 
 def stop_file_watcher():
     """Stops the file watcher thread safely."""
