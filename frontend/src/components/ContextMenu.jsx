@@ -114,7 +114,13 @@ const ContextMenu = ({
             if (openModal) openModal('moveFiles', { filesToMove: new Set([data.id]) });
             break;
           case 'move_selected':
-            if (openModal) openModal('moveFiles', { filesToMove: selectedImageIds });
+            if (openModal) openModal('moveFiles', { 
+              filesToMove: selectedImageIds,
+              onMoveSuccess: () => {
+                if (setSelectedImages) setSelectedImages(new Set());
+                if (setIsSelectMode) setIsSelectMode(false);
+              }
+            });
             break;
           case 'restore_selected':
             imageActions.restoreSelectedImages();

@@ -379,10 +379,17 @@ function ImageGrid({
       queryClient.invalidateQueries({ queryKey: queryKey });
     }
 
-    const hasBulkTagUpdate = webSocketMessage.some(msg => msg.type === 'refresh_images' && msg.reason === 'tags_updated_bulk');
-    if (hasBulkTagUpdate) {
-      setIsSelectMode(false);
-      setSelectedImages(new Set());
+    // Check for bulk actions that should reset selection mode
+    const shouldResetSelection = webSocketMessage.some(msg => 
+      (msg.type === 'refresh_images' && (msg.reason === 'tags_updated_bulk' || msg.reason === 'images_moved' || msg.reason === 'images_restored')) ||
+      (msg.type === 'images_deleted')
+    );
+
+    if (shouldResetSelection) {
+      if (isSelectMode) {
+        setIsSelectMode(false);
+        setSelectedImages(new Set());
+      }
       setContextMenu(prev => ({ ...prev, isVisible: false }));
     }
 
