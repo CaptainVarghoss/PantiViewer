@@ -68,7 +68,7 @@ async def lifespan(app: FastAPI):
 
     # Filter out noise from uvicorn access logs
     logging.getLogger("uvicorn.access").addFilter(AccessLogFilter(
-        block_paths=["/static_assets", "/api/images"],
+        block_paths=["/static_assets", "/api/images", "/api/trash/info"],
         block_status_codes=[304], # Filter out 304 Not Modified
         block_path_status=200     # Filter out block_paths only if they return 200
     ))
