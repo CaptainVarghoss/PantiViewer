@@ -245,6 +245,23 @@ class Filter(FilterBase):
     neg_tags: List[Tag] = [] # List of associated Tags (negative)
     model_config = ConfigDict(from_attributes=True) # Directly use ConfigDict
 
+# --- Log Schemas ---
+class LogBase(BaseModel):
+    level: str
+    message: str
+    source: Optional[str] = None
+    user_id: Optional[int] = None
+    read: bool = False
+
+class Log(LogBase):
+    id: int
+    timestamp: datetime
+    user: Optional[User] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class PaginatedLogs(BaseModel):
+    logs: List[Log]
+    total: int
 # --- Token Schema for Authentication ---
 class Token(BaseModel):
     access_token: str

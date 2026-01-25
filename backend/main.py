@@ -25,6 +25,7 @@ from routes import image_path_routes
 from routes import image_routes
 from routes import setting_routes
 #from routes import device_setting_routes
+from routes import log_routes
 from routes import filter_routes
 
 
@@ -300,6 +301,7 @@ app.include_router(image_routes.router, prefix="/api", tags=["Images"])
 app.include_router(setting_routes.router, prefix="/api", tags=["Settings"])
 #-- combined with above setting_routes.py #app.include_router(device_setting_routes.router, prefix="/api", tags=["DeviceSettings"])
 app.include_router(filter_routes.router, prefix="/api", tags=["Filters"])
+app.include_router(log_routes.router, prefix="/api", tags=["Logs"])
 # app.include_router(user_filter_routes.router, prefix="/api", tags=["UserFilters"])
 # app.include_router(todo_routes.router, prefix="/api", tags=["Todos"])
 

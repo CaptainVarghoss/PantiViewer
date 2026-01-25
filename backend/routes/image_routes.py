@@ -13,7 +13,7 @@ from websocket_manager import manager # Import the WebSocket manager
 import auth
 import database
 import models
-import schemas
+import schemas # type: ignore
 import config
 import image_processor
 
@@ -24,7 +24,7 @@ router = APIRouter()
 # Global executor to limit thumbnail generation threads to prevent resource exhaustion.
 thumbnail_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 processing_thumbnails = set()
-processing_lock = threading.Lock()
+processing_lock = threading.Lock() # type: ignore
 
 def _run_thumbnail_generation(image_id, content_hash, filepath, loop):
     try:
@@ -349,6 +349,16 @@ def mark_image_as_deleted(
         # Use run_coroutine_threadsafe because we are in a synchronous FastAPI route
         # calling an asynchronous function in the main event loop.
         asyncio.run_coroutine_threadsafe(manager.broadcast_json(message), database.main_event_loop)
+
+        asyncio.run_coroutine_threadsafe(
+            manager.send_toast_and_log(
+                db=db,
+                message=f"Image '{image_location.filename}' moved to trash.",
+                level="info",
+                user_id=current_user.id,
+                toast_position="bottom-right"
+            ), database.main_event_loop
+        )
         print(f"Sent 'image_deleted' notification for image ID {image_id}")
     else:
         print("Warning: Could not get main event loop to broadcast WebSocket message for image deletion.")
@@ -376,6 +386,16 @@ def mark_images_as_deleted_bulk(
     if database.main_event_loop:
         message = {"type": "images_deleted", "image_ids": image_ids}
         asyncio.run_coroutine_threadsafe(manager.broadcast_json(message), database.main_event_loop)
+
+        asyncio.run_coroutine_threadsafe(
+            manager.send_toast_and_log(
+                db=db,
+                message=f"{len(image_ids)} images moved to trash.",
+                level="info",
+                user_id=current_user.id,
+                toast_position="bottom-right"
+            ), database.main_event_loop
+        )
         print(f"Sent 'images_deleted' notification for {len(image_ids)} images.")
     return
 
@@ -443,6 +463,15 @@ def move_images_bulk(
             manager.broadcast_json({"type": "refresh_images", "reason": "images_moved"}),
             database.main_event_loop
         )
+        asyncio.run_coroutine_threadsafe(
+            manager.send_toast_and_log(
+                db=db,
+                message=f"Successfully moved {len(locations_to_move)} images to '{destination_path}'.",
+                level="success",
+                user_id=current_user.id,
+                toast_position="bottom-right"
+            ), database.main_event_loop
+        )
     return {"message": f"Successfully moved {len(locations_to_move)} images."}
 
 @router.post("/images/{image_id}/restore", status_code=status.HTTP_204_NO_CONTENT)
@@ -465,6 +494,16 @@ def restore_image(
     if database.main_event_loop:
         message = {"type": "refresh_images", "reason": "image_restored", "image_id": image_id}
         asyncio.run_coroutine_threadsafe(manager.broadcast_json(message), database.main_event_loop)
+
+        asyncio.run_coroutine_threadsafe(
+            manager.send_toast_and_log(
+                db=db,
+                message=f"Image '{image_location.filename}' restored from trash.",
+                level="info",
+                user_id=current_user.id,
+                toast_position="bottom-right"
+            ), database.main_event_loop
+        )
         print(f"Sent 'image_restored' notification for image ID {image_id}")
     return
 
@@ -505,6 +544,16 @@ def permanently_delete_image(
     if database.main_event_loop:
         message = {"type": "image_deleted", "image_id": image_id}
         asyncio.run_coroutine_threadsafe(manager.broadcast_json(message), database.main_event_loop)
+
+        asyncio.run_coroutine_threadsafe(
+            manager.send_toast_and_log(
+                db=db,
+                message=f"Image '{image_location.filename}' permanently deleted.",
+                level="warning",
+                user_id=current_user.id,
+                toast_position="bottom-right"
+            ), database.main_event_loop
+        )
         print(f"Sent 'image_deleted' (permanent) notification for image ID {image_id}")
     return
 
@@ -549,6 +598,15 @@ def empty_trash(
         db.delete(location)
     
     db.commit()
+    if database.main_event_loop:
+        asyncio.run_coroutine_threadsafe(
+            manager.send_toast_and_log(
+                db=db,
+                message=f"Trash emptied. {len(trashed_locations)} images permanently deleted.",
+                level="warning",
+                user_id=current_user.id,
+                toast_position="bottom-right"
+            ), database.main_event_loop)
     return
 
 @router.post("/trash/restore", status_code=status.HTTP_204_NO_CONTENT)
@@ -573,6 +631,15 @@ def restore_trashed_images(
     if database.main_event_loop:
         message = {"type": "refresh_images", "reason": "images_restored", "image_ids": image_ids}
         asyncio.run_coroutine_threadsafe(manager.broadcast_json(message), database.main_event_loop)
+
+        asyncio.run_coroutine_threadsafe(
+            manager.send_toast_and_log(
+                db=db,
+                message=f"{len(image_ids)} images restored from trash.",
+                level="info",
+                user_id=current_user.id,
+                toast_position="bottom-right"
+            ), database.main_event_loop)
         print(f"Sent 'images_restored' notification for {len(image_ids)} images.")
     return
 
@@ -610,6 +677,15 @@ def permanently_delete_trashed_images(
     if database.main_event_loop:
         message = {"type": "images_deleted", "image_ids": image_ids}
         asyncio.run_coroutine_threadsafe(manager.broadcast_json(message), database.main_event_loop)
+
+        asyncio.run_coroutine_threadsafe(
+            manager.send_toast_and_log(
+                db=db,
+                message=f"{len(locations_to_delete)} images permanently deleted from trash.",
+                level="warning",
+                user_id=current_user.id,
+                toast_position="bottom-right"
+            ), database.main_event_loop)
         print(f"Sent 'images_deleted' (permanent) notification for {len(image_ids)} images.")
     return
 

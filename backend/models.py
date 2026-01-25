@@ -140,3 +140,15 @@ class Filter(Base):
 
     tags = relationship("Tag", secondary=filter_tags, back_populates="filters_positive")
     neg_tags = relationship("Tag", secondary=filter_neg_tags, back_populates="filters_negative")
+
+class Log(Base):
+    __tablename__ = "logs"
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    level = Column(String, nullable=False, default='INFO') # e.g., INFO, WARNING, ERROR, SUCCESS
+    message = Column(Text, nullable=False)
+    source = Column(String) # e.g., 'file_watcher', 'user_action'
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    read = Column(Boolean, default=False, nullable=False)
+
+    user = relationship("User")

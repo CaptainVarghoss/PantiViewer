@@ -5,6 +5,7 @@ import FilterManager from './FilterManager';
 import DeviceSpecificSettingsForm from './DeviceSpecificSettingsForm';
 import GlobalSettingsForm from './GlobalSettingsForm';
 import UserManagement from './UserManagement';
+import LogViewer from './LogViewer';
 import TagManager from './TagManager';
 
 /**
@@ -33,6 +34,8 @@ function Settings({ filters, setFilters, onLogout, refetchFilters }) {
                 return isAdmin ? <GlobalSettingsForm /> : null;
             case 'user':
                 return <UserManagement />;
+            case 'logs':
+                return isAdmin ? <LogViewer /> : null;
             default:
                 return <ImagePathsManagement />;
         }
@@ -50,6 +53,7 @@ function Settings({ filters, setFilters, onLogout, refetchFilters }) {
                                     <button className={`tab-item ${activeTab === 'paths' ? 'active' : ''}`} onClick={() => setActiveTab('paths')}>Folders</button>
                                     <button className={`tab-item ${activeTab === 'filters' ? 'active' : ''}`} onClick={() => setActiveTab('filters')}>Filters</button>
                                     <button className={`tab-item ${activeTab === 'tags' ? 'active' : ''}`} onClick={() => setActiveTab('tags')}>Tags</button>
+                                    <button className={`tab-item ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')}>Logs</button>
                                 </>
                             )}
                             <button className={`tab-item ${activeTab === 'device' ? 'active' : ''}`} onClick={() => setActiveTab('device')}>Device</button>

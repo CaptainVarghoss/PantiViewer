@@ -38,6 +38,39 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
     const canGoPrev = currentIndex > 0;    
     const canGoNext = images ? ((currentIndex !== -1 && currentIndex < images.length - 1) || (currentIndex === images.length - 1 && hasMore)) : false;
 
+    // This effect handles both syncing the image from props and ensuring it's fresh.
+    useEffect(() => {
+        // When the modal is open with an image...
+        if (isOpen && modalType === 'image' && modalProps.currentImage?.id) {
+            const imageId = modalProps.currentImage.id;
+
+            const fetchFreshData = async () => {
+                try {
+                    // Invalidate the specific image query to mark it as stale.
+                    // This is crucial for reflecting recent changes like moves or tag edits
+                    // made outside the modal.
+                    await queryClient.invalidateQueries({ queryKey: ['image', imageId] });
+                    
+                    // Now, fetch the data. `fetchQuery` will use the cache only if it's
+                    // considered valid, otherwise it will refetch from the network.
+                    const freshImageData = await queryClient.fetchQuery({
+                        queryKey: ['image', imageId],
+                        queryFn: () => fetchImageByIdApi(imageId, token),
+                    });
+
+                    // Update the modal's internal state only if the component is still mounted.
+                    if (modalContentRef.current) {
+                        setCurrentImage(freshImageData);
+                    }
+                } catch (error) {
+                    console.error(`Failed to refetch data for image ${imageId} on modal open:`, error);
+                    onClose();
+                }
+            };
+            fetchFreshData();
+        }
+    }, [isOpen, modalProps.currentImage, modalType, queryClient, token, onClose]);
+
     const getAnimationBounds = () => {
         // On exit, we need the bounds of the CURRENT image in the grid, not the original one.
         if (currentImage) {

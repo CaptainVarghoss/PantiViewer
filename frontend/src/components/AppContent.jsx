@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { Toaster, toast } from 'sonner';
 
 import { useAuth } from '../context/AuthContext';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
@@ -123,8 +124,17 @@ export function AppContent({
   };
 
   const handleWebSocketMessage = useCallback((message) => {
+    if (message.type === 'toast') {
+        const { message: toastMessage, level, options } = message.payload;
+        const toastFunc = toast[level] || toast;
+        toastFunc(toastMessage, options);
+        return;
+    }
     console.log("File change detected:", message);
-    setWebSocketMessage(prevMessages => [...prevMessages, message]);
+    setWebSocketMessage(prevMessages => {
+      const currentMessages = Array.isArray(prevMessages) ? prevMessages : [];
+      return [...currentMessages, message];
+    });
   }, []);
 
   useGlobalHotkeys({
@@ -145,6 +155,7 @@ export function AppContent({
 
   return (
     <>
+      <Toaster />
       <header>
         <Navbar
           isConnected={isConnected}
