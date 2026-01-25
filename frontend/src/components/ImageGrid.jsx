@@ -411,6 +411,7 @@ function ImageGrid({
     images: images,
     gridRef: gridRef,
     setFocusedImageId: setFocusedImageId,
+    columnCount: columnCount,
   });
 
   const handleItemsRendered = useCallback(({ 

@@ -26,6 +26,7 @@ export const useGlobalHotkeys = ({
   images, // for grid navigation
   gridRef, // for calculating columns
   setFocusedImageId, // to update focus
+  columnCount,
 
 
   // Dialog states and handlers
@@ -41,12 +42,16 @@ export const useGlobalHotkeys = ({
   const handleGridNavigation = useCallback((key) => {
     if (!isGridActive || !images || images.length === 0) return;
 
-    const gridEl = gridRef.current;
-    if (!gridEl) return;
+    let columns = columnCount;
 
-    const gridStyle = window.getComputedStyle(gridEl);
-    const gridTemplateColumns = gridStyle.getPropertyValue('grid-template-columns');
-    const columns = gridTemplateColumns.split(' ').length;
+    if (!columns) {
+      const gridEl = gridRef.current;
+      if (!gridEl || !(gridEl instanceof Element)) return;
+
+      const gridStyle = window.getComputedStyle(gridEl);
+      const gridTemplateColumns = gridStyle.getPropertyValue('grid-template-columns');
+      columns = gridTemplateColumns.split(' ').length;
+    }
 
     const focusedImageId = focusedImage ? focusedImage.id : null;
     let currentIndex = -1;
@@ -74,7 +79,7 @@ export const useGlobalHotkeys = ({
         setFocusedImageId(nextImage.id);
       }
     }
-  }, [isGridActive, images, focusedImage, setFocusedImageId, gridRef]);
+  }, [isGridActive, images, focusedImage, setFocusedImageId, gridRef, columnCount]);
 
   const handleKeyDown = useCallback((event) => {
     // Do not interfere with text input fields.
