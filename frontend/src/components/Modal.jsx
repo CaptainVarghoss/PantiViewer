@@ -3,6 +3,8 @@ import { IoChevronBack, IoChevronForward, IoClose, IoExpand, IoContract } from '
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import TagCluster from './TagCluster';
+import { useQueryClient } from '@tanstack/react-query';
+import { fetchImageByIdApi } from '../api/imageService';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useHotkeyContext } from '../context/HotkeyContext';
 import Settings from './settings/Settings'; // Import the new unified Settings component
@@ -20,11 +22,14 @@ import Settings from './settings/Settings'; // Import the new unified Settings c
  * @param {object} [props.modalProps.currentImage] - The initial image to display.
  */
 function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFilters, isFullscreen, toggleFullScreen }) {
-    const { token, isAuthenticated, settings, isAdmin, logout } = useAuth();
+    const { token, isAuthenticated, settings, logout, isAdmin } = useAuth();
     const { pushContext, popContext } = useHotkeyContext();
+    const queryClient = useQueryClient();
     const modalContentRef = useRef(null);
     const imageSectionRef = useRef(null); // Ref for the image section
 
+    // --- Image Modal State & Navigation Logic ---
+    const [isNavigating, setIsNavigating] = useState(false);
     // --- Image Modal State & Navigation Logic ---
     const { images, hasMore, fetchMoreImages, onNavigate } = modalProps;
     const [currentImage, setCurrentImage] = useState(modalProps.currentImage);
@@ -191,28 +196,63 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
         imageUrlToDisplay = usePreview ? previewUrl : blobImageUrl;
     }
 
-    const navigateImage = useCallback(async (direction) => {
-        if (!images || images.length === 0) return;
-        const newIndex = currentIndex + direction;
+     const navigateImage = useCallback(async (direction) => {
+        // Prevent navigation while another is in progress or if there are no images
+        if (isNavigating || !images) return;
 
+        const newIndex = currentIndex + direction;
         setNavigationDirection(direction);
 
+        // Handle navigation to the next page of images
+        if (direction > 0 && newIndex >= images.length) {
+            if (hasMore && fetchMoreImages) {
+                setIsNavigating(true);
+                try {
+                    const result = await fetchMoreImages();
+                    const allPages = result?.data?.pages ?? [];
+                    const allImages = allPages.flatMap(page => page);
+
+                    if (newIndex < allImages.length) {
+                        const imageStub = allImages[newIndex];
+                        const newImageData = await queryClient.fetchQuery({
+                            queryKey: ['image', imageStub.id],
+                            queryFn: () => fetchImageByIdApi(imageStub.id, token),
+                        });
+                        setCurrentImage(newImageData);
+                        onNavigate?.(newImageData.id);
+                    }
+                } catch (error) {
+                    console.error("Error fetching more images during navigation:", error);
+                } finally {
+                    setIsNavigating(false);
+                }
+            }
+            return;
+        }
+
+        // Handle navigation within the currently loaded set of images
         if (newIndex >= 0 && newIndex < images.length) {
-            const newImage = images[newIndex];
-            setCurrentImage(newImage);
-            // Call the onNavigate callback from props to update the focused image in the grid.
-            onNavigate?.(newImage.id);
-        } else if (direction > 0 && newIndex >= images.length && hasMore && fetchMoreImages) {
-            await fetchMoreImages();
-            // The `images` array from the hook will update, and we can try to navigate again.
-            if (images[newIndex]) {
-                const newImage = images[newIndex];
-                setCurrentImage(newImage);
-                onNavigate?.(newImage.id);
+            setIsNavigating(true);
+            try {
+                const imageStub = images[newIndex];
+                const newImageData = await queryClient.fetchQuery({
+                    queryKey: ['image', imageStub.id],
+                    queryFn: () => fetchImageByIdApi(imageStub.id, token),
+                });
+
+                if (newImageData) {
+                    setCurrentImage(newImageData);
+                    onNavigate?.(newImageData.id);
+                } else {
+                    console.error(`Failed to fetch image data for ID: ${imageStub.id}`);
+                }
+            } catch (error) {
+                console.error(`Error navigating to image ID ${images[newIndex]?.id}:`, error);
+            } finally {
+                setIsNavigating(false);
             }
         }
-    }, [currentIndex, images, hasMore, fetchMoreImages, onNavigate]);
-
+    }, [currentIndex, images, hasMore, fetchMoreImages, onNavigate, isNavigating, token, queryClient]);
 
     const handleNext = useCallback(() => navigateImage(1), [navigateImage]); // direction: 1 for next
     const handlePrev = useCallback(() => navigateImage(-1), [navigateImage]); // direction: -1 for prev
@@ -377,7 +417,7 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
                 <div className="modal-body">
                     <div ref={imageSectionRef} className="modal-image-section" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ position: 'relative' }}>
                         <AnimatePresence initial={false} custom={navigationDirection}>
-                            {currentImage.is_video ? (
+                            {!isNavigating && (currentImage.is_video ? (
                                 <motion.video
                                     key={currentImage.id}
                                     controls
@@ -406,6 +446,17 @@ function Modal({ isOpen, onClose, modalType, modalProps = {}, filters, refetchFi
                                     style={{ transform: `translateX(${imageTranslateX}px)`, position: 'absolute' }}
                                     onError={(e) => { e.target.src = "https://placehold.co/1200x800/333333/FFFFFF?text=Image+Not+Found"; }}
                                 />
+                            ))}
+                            {isNavigating && (
+                                <motion.div
+                                    key="loading-overlay"
+                                    className="modal-loading-overlay"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                >
+                                    <div className="spinner-icon"></div>
+                                </motion.div>
                             )}
                         </AnimatePresence>
                     </div>

@@ -77,7 +77,7 @@ def get_thumbnail(image_id: int, db: Session = Depends(database.get_db)):
         placeholder_path = os.path.join(config.STATIC_DIR, "placeholder.png")  # Or a loading animation
         return FileResponse(placeholder_path, media_type="image/png")
 
-@router.get("/images/", response_model=List[schemas.ImageResponse])
+@router.get("/images/", response_model=List[schemas.ImageGridResponse])
 def read_images(
     limit: int = 100,
     search_query: Optional[str] = Query(None, description="Search term for filename or path"),
@@ -99,9 +99,7 @@ def read_images(
     query = db.query(models.ImageLocation)
     query = query.join(models.ImageContent, models.ImageLocation.content_hash == models.ImageContent.content_hash)
     query = query.outerjoin(models.ImagePath, models.ImagePath.path == models.ImageLocation.path)
-    query = query.options(
-        joinedload(models.ImageLocation.content).joinedload(models.ImageContent.tags)
-    )
+    query = query.options(joinedload(models.ImageLocation.content))
 
     # Create a subquery to select all paths that are explicitly marked as ignored.
     query = query.filter(models.ImagePath.is_ignored == False)
@@ -172,30 +170,14 @@ def read_images(
             else:
                 print(f"Could not trigger thumbnail generation for {location.filename}: original_filepath not found or invalid.")
 
-        # Handle EXIF data safely without modifying the DB object
-        exif_data = img.exif_data
-        if isinstance(exif_data, str):
-            try:
-                exif_data = json.loads(exif_data)
-            except json.JSONDecodeError:
-                exif_data = {}
-        
-        response_images.append(schemas.ImageResponse(
+        response_images.append(schemas.ImageGridResponse(
             id=location.id,
             filename=location.filename,
-            path=location.path,
             thumbnail_url=thumbnail_url,
             thumbnail_missing=thumbnail_missing,
-            exif_data=exif_data,
-            # Explicitly map fields to avoid passing SQLAlchemy internal state (_sa_instance_state)
-            # to Pydantic, which can cause segfaults in threaded environments.
             content_hash=img.content_hash,
             date_created=img.date_created,
-            date_modified=img.date_modified,
             is_video=img.is_video,
-            width=img.width,
-            height=img.height,
-            tags=list(img.tags),
             content_id=img.content_id
         ))
     return response_images

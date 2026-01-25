@@ -119,6 +119,18 @@ class ImageContent(ImageBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class ImageGridResponse(BaseModel):
+    id: int
+    filename: str
+    content_id: int
+    content_hash: str
+    date_created: datetime
+    is_video: bool = False
+    thumbnail_url: Optional[str] = None
+    thumbnail_missing: Optional[bool] = False
+
+    model_config = ConfigDict(from_attributes=True, extra='ignore')
+
 class ImageResponse(BaseModel):
     # Fields from ImageLocation
     id: int
