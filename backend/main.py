@@ -153,6 +153,9 @@ async def lifespan(app: FastAPI):
             {'name': 'preview_size', 'value': '1024', 'admin_only': True,
              'display_name': 'Preview Size (px)', 'description': 'Max dimension for generated image previews.',
              'group': 'Previews', 'input_type': 'number'},
+            {'name': 'page_size', 'value': '500', 'admin_only': False,
+             'display_name': 'Page Size', 'description': 'How many images to get from database "per page". Bigger is better for smooth scrolling, smaller is better for slow connections.',
+             'group': 'Performance', 'input_type': 'number'},
             
         ]
 

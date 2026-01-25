@@ -116,7 +116,7 @@ function ImageGrid({
   } = useInfiniteQuery({
     queryKey: queryKey,
     queryFn: async ({ pageParam }) => {
-      const params = { limit: 50 };
+      const params = { limit: settings.page_size };
 
       if (trash_only) {
         params.trash_only = true;
