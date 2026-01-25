@@ -155,7 +155,7 @@ export function AppContent({
 
   return (
     <>
-      <Toaster />
+      <div className="toaster"><Toaster /></div>
       <header>
         <Navbar
           isConnected={isConnected}
