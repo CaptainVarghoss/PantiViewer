@@ -7,7 +7,7 @@ import mimetypes
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import func, not_
+from sqlalchemy import func, not_, text
 import json, time
 from typing import Tuple, Optional
 import threading
@@ -19,6 +19,7 @@ import models
 import database
 import config
 import schemas
+import search_handler
 
 # Define supported image and video MIME types
 # This list can be expanded based on your needs
@@ -83,6 +84,38 @@ def get_meta(filepath: str) -> Tuple[dict, Optional[int], Optional[int]]:
 
     return {}, None, None # Default return if no other condition is met
  
+def update_fts_entry(db: Session, location_id: int):
+    """Updates or inserts an entry in the FTS index for a specific location."""
+    try:
+        # Fetch the location with content to ensure we have the latest data
+        loc = db.query(models.ImageLocation).options(joinedload(models.ImageLocation.content)).filter(models.ImageLocation.id == location_id).first()
+        if not loc or not loc.content:
+            return
+
+        content = loc.content
+        try:
+            exif = json.loads(content.exif_data) if content.exif_data else {}
+        except (json.JSONDecodeError, TypeError):
+            exif = {}
+            
+        data = search_handler.flatten_exif_to_fts(loc.id, loc.path, loc.filename, exif)
+        
+        # Use INSERT OR REPLACE to handle both new and updated entries
+        sql = text("""
+            INSERT OR REPLACE INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, full_text) 
+            VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :full_text)
+        """)
+        db.execute(sql, data)
+    except Exception as e:
+        print(f"Error updating FTS entry for location {location_id}: {e}")
+
+def remove_fts_entry(db: Session, location_id: int):
+    """Removes an entry from the FTS index."""
+    try:
+        db.execute(text("DELETE FROM image_fts_index WHERE rowid = :id"), {"id": location_id})
+    except Exception as e:
+        print(f"Error removing FTS entry for location {location_id}: {e}")
+
 def add_file_to_db(
     db: Session,
     file_full_path: str,
@@ -170,6 +203,11 @@ def add_file_to_db(
             db.add(new_location)
             db.commit()
             db.refresh(new_location) # Ensure the object is up-to-date after commit
+            
+            # Update FTS index for the new file
+            update_fts_entry(db, new_location.id)
+            db.commit()
+            
             existing_checksums.add(checksum) # Update the in-memory set
 
             # After successfully adding, broadcast a websocket message if the loop is provided
@@ -598,3 +636,106 @@ def reprocess_metadata_task(db_session_factory, scope: str, identifier: Optional
         print(f"[{datetime.now().isoformat()}] Finished metadata reprocessing task for {total_items} items in {duration:.2f} seconds.")
     finally:
         db.close()
+
+def rebuild_fts_index(db_session_factory):
+    """
+    Rebuilds the FTS5 index for all images.
+    """
+    db = db_session_factory()
+    try:
+        print(f"[{datetime.now().isoformat()}] Starting FTS index rebuild...")
+        start_time = time.time()
+        
+        # Drop and recreate the table to ensure clean state and correct schema
+        db.execute(text("DROP TABLE IF EXISTS image_fts_index"))
+        db.execute(text("""
+            CREATE VIRTUAL TABLE image_fts_index USING fts5(
+                location_id UNINDEXED,
+                path,
+                filename,
+                prompt,
+                negative_prompt,
+                model,
+                sampler,
+                scheduler,
+                loras,
+                upscaler,
+                application,
+                full_text
+            )
+        """))
+        db.commit()
+        
+        # Fetch all locations with their content
+        locations = db.query(models.ImageLocation).options(joinedload(models.ImageLocation.content)).all()
+        
+        batch_size = 100
+        batch = []
+        
+        for loc in locations:
+            content = loc.content
+            if not content:
+                continue
+            
+            try:
+                exif = json.loads(content.exif_data) if content.exif_data else {}
+            except (json.JSONDecodeError, TypeError):
+                exif = {}
+                
+            data = search_handler.flatten_exif_to_fts(loc.id, loc.path, loc.filename, exif)
+            batch.append(data)
+            
+            if len(batch) >= batch_size:
+                db.execute(text("INSERT INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, full_text) VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :full_text)"), batch)
+                db.commit()
+                batch = []
+        
+        if batch:
+            db.execute(text("INSERT INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, full_text) VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :full_text)"), batch)
+            db.commit()
+            
+        duration = time.time() - start_time
+        print(f"[{datetime.now().isoformat()}] FTS index rebuild finished in {duration:.2f} seconds.")
+    except Exception as e:
+        print(f"Error rebuilding FTS index: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+def purge_thumbnails() -> int:
+    """
+    Deletes all files in the thumbnails directory.
+    Returns the number of files deleted.
+    """
+    directory = Path(str(config.THUMBNAILS_DIR))
+    if not directory.exists():
+        return 0
+    
+    count = 0
+    for item in directory.iterdir():
+        if item.is_file():
+            try:
+                item.unlink()
+                count += 1
+            except Exception as e:
+                print(f"Error deleting thumbnail {item}: {e}")
+    return count
+
+def purge_previews() -> int:
+    """
+    Deletes all files in the previews directory.
+    Returns the number of files deleted.
+    """
+    directory = Path(str(config.PREVIEWS_DIR))
+    if not directory.exists():
+        return 0
+    
+    count = 0
+    for item in directory.iterdir():
+        if item.is_file():
+            try:
+                item.unlink()
+                count += 1
+            except Exception as e:
+                print(f"Error deleting preview {item}: {e}")
+    return count

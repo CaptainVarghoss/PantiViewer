@@ -7,6 +7,7 @@ import GlobalSettingsForm from './GlobalSettingsForm';
 import UserManagement from './UserManagement';
 import LogViewer from './LogViewer';
 import TagManager from './TagManager';
+import ToolsManager from './ToolsManager';
 
 /**
  * A unified settings component that uses tabs to organize different settings panels.
@@ -34,6 +35,8 @@ function Settings({ filters, setFilters, onLogout, refetchFilters }) {
                 return isAdmin ? <GlobalSettingsForm /> : null;
             case 'user':
                 return <UserManagement />;
+            case 'tools':
+                return isAdmin ? <ToolsManager /> : null;
             case 'logs':
                 return isAdmin ? <LogViewer /> : null;
             default:
@@ -53,6 +56,7 @@ function Settings({ filters, setFilters, onLogout, refetchFilters }) {
                                     <button className={`tab-item ${activeTab === 'paths' ? 'active' : ''}`} onClick={() => setActiveTab('paths')}>Folders</button>
                                     <button className={`tab-item ${activeTab === 'filters' ? 'active' : ''}`} onClick={() => setActiveTab('filters')}>Filters</button>
                                     <button className={`tab-item ${activeTab === 'tags' ? 'active' : ''}`} onClick={() => setActiveTab('tags')}>Tags</button>
+                                    <button className={`tab-item ${activeTab === 'tools' ? 'active' : ''}`} onClick={() => setActiveTab('tools')}>Tools</button>
                                     <button className={`tab-item ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')}>Logs</button>
                                 </>
                             )}

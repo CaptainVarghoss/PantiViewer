@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, and_, or_, not_, select
+from sqlalchemy import func, and_, or_, not_, select, text
 from typing import List, Optional
 from pathlib import Path
 from datetime import datetime
@@ -9,6 +9,7 @@ import os, json, threading, mimetypes, asyncio
 import concurrent.futures
 from search_constructor import generate_image_search_filter
 from websocket_manager import manager # Import the WebSocket manager
+from search_handler import build_fts_query
 
 import auth
 import database
@@ -101,6 +102,12 @@ def read_images(
     query = query.outerjoin(models.ImagePath, models.ImagePath.path == models.ImageLocation.path)
     query = query.options(joinedload(models.ImageLocation.content))
 
+    # Integration of FTS5 Search
+    if search_query:
+        query = query.join(models.ImageFTS, models.ImageLocation.id == models.ImageFTS.location_id)
+        fts_match = build_fts_query(search_query)
+        query = query.filter(text("image_fts_index MATCH :s")).params(s=fts_match)
+
     # Create a subquery to select all paths that are explicitly marked as ignored.
     query = query.filter(models.ImagePath.is_ignored == False)
 
@@ -109,47 +116,27 @@ def read_images(
     else:
         # If not viewing trash, filter out deleted items and apply search/filter criteria
         query = query.filter(models.ImageLocation.deleted == False)
-        search_filter = generate_image_search_filter(search_terms=search_query, admin=current_user.admin, active_stages_json=active_stages_json, db=db)
+
+        search_filter = generate_image_search_filter(search_terms=None, admin=current_user.admin, active_stages_json=active_stages_json, db=db)
         query = query.filter(search_filter)
 
-    # Apply cursor-based pagination (Keyset Pagination)
-    if last_sort_value is not None and last_content_id is not None and last_location_id is not None:
-        converted_last_sort_value = last_sort_value
+    # Pagination Logic
+    if all(v is not None for v in [last_sort_value, last_content_id, last_location_id]):
+        val = last_sort_value
         if sort_by == 'date_created':
-            try:
-                converted_last_sort_value = datetime.fromisoformat(last_sort_value.replace('Z', '+00:00'))
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid date format for last_sort_value.")
-
-        sort_column = getattr(models.ImageContent if sort_by != 'filename' else models.ImageLocation, sort_by)
-
-        # Using tuple comparison for more efficient keyset pagination.
-        # This creates a 3-part cursor: (sort_column, content_id, location_id)
-        cursor_tuple = (
-            sort_column,
-            models.ImageContent.content_id,
-            models.ImageLocation.id
-        )
-        last_values_tuple = (
-            converted_last_sort_value,
-            last_content_id,
-            last_location_id
-        )
-
-        if sort_order == 'desc':
-            query = query.filter(cursor_tuple < last_values_tuple)
-        else:  # 'asc'
-            query = query.filter(cursor_tuple > last_values_tuple)
+            val = datetime.fromisoformat(last_sort_value.replace('Z', '+00:00'))
+        
+        sort_col = getattr(models.ImageContent if sort_by != 'filename' else models.ImageLocation, sort_by)
+        cursor = (sort_col, models.ImageContent.content_id, models.ImageLocation.id)
+        last_vals = (val, last_content_id, last_location_id)
+        
+        query = query.filter(cursor < last_vals if sort_order == 'desc' else cursor > last_vals)
 
     # Apply sorting
-    sort_column = getattr(models.ImageContent if sort_by != 'filename' else models.ImageLocation, sort_by)
-
-    if sort_order == 'desc':
-        query = query.order_by(sort_column.desc(), models.ImageContent.content_id.desc(), models.ImageLocation.id.desc())
-    else:  # 'asc'
-        query = query.order_by(sort_column.asc(), models.ImageContent.content_id.asc(), models.ImageLocation.id.asc())
-
-    # Apply limit
+    sort_col = getattr(models.ImageContent if sort_by != 'filename' else models.ImageLocation, sort_by)
+    order_func = sort_col.desc if sort_order == 'desc' else sort_col.asc
+    
+    query = query.order_by(order_func(), models.ImageContent.content_id.desc(), models.ImageLocation.id.desc())
     images = query.limit(limit).all()
 
     response_images = []
@@ -451,6 +438,9 @@ def move_images_bulk(
             
             # Update the database record
             location.path = destination_path
+
+            # Update FTS index
+            image_processor.update_fts_entry(db, location.id)
         except OSError as e:
             # If a file move fails, we should probably stop and report the error.
             # Rolling back previous moves could be complex, so for now we stop at the first error.
@@ -537,6 +527,7 @@ def permanently_delete_image(
         raise HTTPException(status_code=500, detail=f"Failed to delete the physical file: {e}")
 
     # Delete the database record
+    image_processor.remove_fts_entry(db, image_location.id)
     db.delete(image_location)
     db.commit()
 
@@ -595,6 +586,7 @@ def empty_trash(
             print(f"Error deleting file {full_path}: {e}")
             # Decide if you want to stop or continue. For now, we continue.
         
+        image_processor.remove_fts_entry(db, location.id)
         db.delete(location)
     
     db.commit()
@@ -670,6 +662,7 @@ def permanently_delete_trashed_images(
             print(f"Error deleting file {full_path}: {e}")
             # Continue even if a file fails to delete
 
+        image_processor.remove_fts_entry(db, location.id)
         db.delete(location)
 
     db.commit()

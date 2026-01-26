@@ -85,6 +85,7 @@ class ImageChangeEventHandler(FileSystemEventHandler):
                     # The record exists, so we can proceed with deletion.
                     # This is the expected path for files deleted outside the application.
                     image_id_to_broadcast = location_to_delete.id
+                    image_processor.remove_fts_entry(db, location_to_delete.id)
                     db.delete(location_to_delete)
                     db.commit()
                     message = {"type": "image_deleted", "image_id": image_id_to_broadcast}
@@ -116,6 +117,7 @@ class ImageChangeEventHandler(FileSystemEventHandler):
                     print(f"File Watcher: Updating path for image location ID {location_to_move.id}")
                     location_to_move.path = new_dir
                     location_to_move.filename = new_filename
+                    image_processor.update_fts_entry(db, location_to_move.id)
                     db.commit()
                     
                     # Determine who to notify based on folder visibility.

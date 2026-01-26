@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table, Text, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table, Text, UniqueConstraint, Index, event, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
@@ -152,3 +152,45 @@ class Log(Base):
     read = Column(Boolean, default=False, nullable=False)
 
     user = relationship("User")
+
+class ImageFTS(Base):
+    # Shadow model for the SQLite FTS5 Virtual Table.
+    __tablename__ = "image_fts_index"
+    
+    # In FTS5, 'rowid' is the hidden primary key. 
+    # We map content_id to it so SQLAlchemy is happy.
+    location_id = Column(Integer, primary_key=True)
+    path = Column(Text)
+    filename = Column(Text)
+    prompt = Column(Text)
+    negative_prompt = Column(Text)
+    model = Column(Text)
+    sampler = Column(Text)
+    scheduler = Column(Text)
+    loras = Column(Text)
+    upscaler = Column(Text)
+    application = Column(Text)
+    full_text = Column(Text)
+
+# --- SQL Compilation Logic ---
+# This ensures that when create_all() is run,
+# it creates a VIRTUAL table instead of a normal one.
+@event.listens_for(ImageFTS.__table__, "after_create")
+def create_fts_table(target, connection, **kw):
+    connection.execute(text("DROP TABLE IF EXISTS image_fts_index;"))
+    connection.execute(text("""
+        CREATE VIRTUAL TABLE image_fts_index USING fts5(
+            location_id UNINDEXED,
+            path,
+            filename,
+            prompt,
+            negative_prompt,
+            model,
+            sampler,
+            scheduler,
+            loras,
+            upscaler,
+            application,
+            full_text
+        );
+    """))

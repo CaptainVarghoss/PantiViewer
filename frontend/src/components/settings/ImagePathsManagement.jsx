@@ -14,9 +14,7 @@ function ImagePathsManagement({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
-  const [isScanning, setIsScanning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isReprocessing, setIsReprocessing] = useState(false);
 
   // State for in-place editing
   const [editablePaths, setEditablePaths] = useState([]);
@@ -176,81 +174,6 @@ function ImagePathsManagement({ onBack }) {
     } catch (err) {
       console.error('Error deleting image path:', err);
       setError('Network error or failed to delete image path.');
-    }
-  };
-
-  const handleManualScan = async () => {
-    setMessage(null);
-    setError(null);
-    setIsScanning(true);
-
-    if (!isAdmin) {
-      setError("You must be an admin to trigger a manual scan.");
-      setIsScanning(false);
-      return;
-    }
-    if (!token) {
-        setError("Authentication token missing. Please log in.");
-        setIsScanning(false);
-        return;
-    }
-
-    try {
-      const response = await fetch('/api/scan-files/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setMessage(`Scan initiated: ${result.message}`);
-      } else {
-        const errorData = await response.json();
-        setError(`Failed to initiate scan: ${errorData.detail || response.statusText}`);
-      }
-    } catch (err) {
-      console.error('Error triggering scan:', err);
-      setError('Network error or failed to trigger scan.');
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
-  const handleReprocessAll = async () => {
-    setMessage(null);
-    setError(null);
-    setIsReprocessing(true);
-
-    if (!isAdmin) {
-      setError("You must be an admin to trigger metadata reprocessing.");
-      setIsReprocessing(false);
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/reprocess-metadata/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ scope: 'all' }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setMessage(`Metadata reprocessing initiated: ${result.message}`);
-      } else {
-        const errorData = await response.json();
-        setError(`Failed to start reprocessing: ${errorData.detail || response.statusText}`);
-      }
-    } catch (err) {
-      setError('Network error or failed to trigger reprocessing.');
-    } finally {
-      setIsReprocessing(false);
     }
   };
 
@@ -434,20 +357,6 @@ function ImagePathsManagement({ onBack }) {
                 </button>
               </div>
             </form>
-          </div>
-          <div className="section-container section-footer">
-            <button
-                  onClick={handleManualScan}
-                  className="btn-base btn-yellow"
-                  disabled={isScanning || !isAdmin}>
-                  {isScanning ? 'Scanning...' : 'Run Manual Scan'}
-              </button>
-              <button
-                  onClick={handleReprocessAll}
-                  className="btn-base btn-green"
-                  disabled={isReprocessing || !isAdmin}>
-                  {isReprocessing ? 'Refreshing...' : 'Refresh All Metadata'}
-              </button>
           </div>
         </>
        )}      

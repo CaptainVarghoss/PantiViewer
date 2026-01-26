@@ -60,3 +60,38 @@ def trigger_metadata_reprocessing(
     reprocess_thread.start()
 
     return {"message": f"Metadata reprocessing for scope '{request.scope}' initiated in the background. Check server logs for progress."}
+
+@router.post("/rebuild-fts/", summary="Trigger FTS Index Rebuild", response_model=Dict[str, str])
+def trigger_fts_rebuild(current_user: models.User = Depends(auth.get_current_admin_user)):
+    """
+    Triggers a background task to rebuild the Full Text Search (FTS) index.
+    This is an admin-only endpoint.
+    """
+    print("Manual FTS index rebuild triggered via API. Starting in background thread...")
+
+    db_session_factory = database.SessionLocal
+
+    rebuild_thread = threading.Thread(
+        target=image_processor.rebuild_fts_index,
+        args=(db_session_factory,)
+    )
+    rebuild_thread.daemon = True
+    rebuild_thread.start()
+
+    return {"message": "FTS index rebuild initiated in the background. Check server logs for progress."}
+
+@router.post("/purge-thumbnails/", summary="Purge All Thumbnails", response_model=Dict[str, str])
+def purge_all_thumbnails(current_user: models.User = Depends(auth.get_current_admin_user)):
+    """
+    Deletes all generated thumbnail files. They will be regenerated on demand.
+    """
+    count = image_processor.purge_thumbnails()
+    return {"message": f"Successfully deleted {count} thumbnail files."}
+
+@router.post("/purge-previews/", summary="Purge All Previews", response_model=Dict[str, str])
+def purge_all_previews(current_user: models.User = Depends(auth.get_current_admin_user)):
+    """
+    Deletes all generated preview files. They will be regenerated on demand.
+    """
+    count = image_processor.purge_previews()
+    return {"message": f"Successfully deleted {count} preview files."}
