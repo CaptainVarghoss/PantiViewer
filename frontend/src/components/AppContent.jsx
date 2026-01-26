@@ -5,6 +5,7 @@ import { Toaster, toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useGlobalHotkeys } from '../hooks/useGlobalHotkeys';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useSearch } from '../context/SearchContext';
 
 import Navbar from './Navbar';
 import FooterBar from './FooterBar';
@@ -19,6 +20,7 @@ export function AppContent({
   setCurrentView,
 }) {
   const { token, isAdmin, settings } = useAuth();
+  const { searchTerm, setSearchTerm } = useSearch();
 
   const [webSocketMessage, setWebSocketMessage] = useState([]);
   const [selectedImages, setSelectedImages] = useState(new Set());
@@ -119,6 +121,7 @@ export function AppContent({
       setIsSelectMode(false);
       setSelectedImages(new Set());
       setCurrentImages([]);
+      setSearchTerm('');
     }
     setCurrentView(view);
   };
