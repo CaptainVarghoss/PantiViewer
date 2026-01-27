@@ -9,7 +9,7 @@ import os, json, threading, mimetypes, asyncio
 import concurrent.futures
 from search_constructor import generate_image_search_filter
 from websocket_manager import manager # Import the WebSocket manager
-from search_handler import build_fts_query
+import search_handler
 
 import auth
 import database
@@ -98,27 +98,29 @@ def read_images(
     Triggers thumbnail generation if not found.
     """
     query = db.query(models.ImageLocation)
+    query = query.join(models.ImageFTS, models.ImageLocation.id == models.ImageFTS.location_id)
     query = query.join(models.ImageContent, models.ImageLocation.content_hash == models.ImageContent.content_hash)
     query = query.outerjoin(models.ImagePath, models.ImagePath.path == models.ImageLocation.path)
     query = query.options(joinedload(models.ImageLocation.content))
 
-    # Integration of FTS5 Search
-    if search_query:
-        query = query.join(models.ImageFTS, models.ImageLocation.id == models.ImageFTS.location_id)
-        fts_match = build_fts_query(search_query)
-        query = query.filter(text("image_fts_index MATCH :s")).params(s=fts_match)
-
-    # Create a subquery to select all paths that are explicitly marked as ignored.
+    # Create a subquery to select all paths that are not explicitly marked as ignored.
     query = query.filter(models.ImagePath.is_ignored == False)
 
     if trash_only:
         query = query.filter(models.ImageLocation.deleted == True)
     else:
-        # If not viewing trash, filter out deleted items and apply search/filter criteria
+        # If not viewing trash, filter out deleted items and apply all search/filter criteria
         query = query.filter(models.ImageLocation.deleted == False)
 
-        search_filter = generate_image_search_filter(search_terms=None, admin=current_user.admin, active_stages_json=active_stages_json, db=db)
-        query = query.filter(search_filter)
+        # Pull all filters from database
+        db_filters = db.query(models.Filter).options(joinedload(models.Filter.tags), joinedload(models.Filter.neg_tags)).all()
+
+        active_filters = search_handler.get_active_filter_stages(db_filters, active_stages_json)
+
+        built_query = search_handler.get_final_fts_expression(search_query, active_filters)
+        #print(f"Built FTS expression: {built_query}")
+        if built_query:
+            query = query.filter(text("image_fts_index MATCH :fts")).params(fts=built_query)
 
     # Pagination Logic
     if all(v is not None for v in [last_sort_value, last_content_id, last_location_id]):
@@ -256,6 +258,9 @@ def update_image(image_id: int, image_update: schemas.ImageTagUpdate, db: Sessio
     
     db.commit()
 
+    # Update FTS index for this image
+    image_processor.update_fts_entry(db, image_id)
+
     # After updating tags, broadcast a general refresh message
     if database.main_event_loop:
         message = {"type": "refresh_images", "reason": "tags_updated"}
@@ -305,6 +310,10 @@ def bulk_update_image_tags(
             image_content.tags.remove(tag)
 
     db.commit()
+
+    # Update FTS index for all affected images
+    for image_id in image_ids:
+        image_processor.update_fts_entry(db, image_id)
 
     # After updating tags, broadcast a refresh message for the affected images
     if database.main_event_loop:

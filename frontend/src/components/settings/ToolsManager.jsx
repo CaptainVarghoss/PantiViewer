@@ -163,6 +163,35 @@ function ToolsManager() {
                         </div>
                     </div>
                 </div>
+
+                {/* Database Vacuum */}
+                <div className="section-item" style={{ borderTop: '2px solid var(--border-color-strong)'}}>
+                    <div className="section-row">
+                        <div className="section-fields">
+                            <div className="form-group">
+                                <label style={{ color: 'var(--color-orange)' }}>Repair Database</label>
+                                <p className="modal-text-gray" style={{fontSize: '0.9em'}}>
+                                    Attempts to fix database corruption by running the VACUUM command.
+                                    <br/>
+                                    <strong style={{ color: 'var(--color-red)' }}>Warning:</strong> This is a recovery tool. The application will be unresponsive during this process. Use only if you are experiencing database errors.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="section-fields">
+                            <button 
+                                onClick={() => {
+                                    if (window.confirm('Are you sure you want to attempt a database repair? This can take a while and should only be used to fix errors.')) {
+                                        handleAction('/api/database/vacuum/');
+                                    }
+                                }} 
+                                className="btn-base btn-orange"
+                                disabled={loading}
+                            >
+                                Repair Database
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

@@ -95,3 +95,18 @@ def purge_all_previews(current_user: models.User = Depends(auth.get_current_admi
     """
     count = image_processor.purge_previews()
     return {"message": f"Successfully deleted {count} preview files."}
+
+@router.post("/database/vacuum/", summary="Vacuum Database", response_model=Dict[str, str])
+def vacuum_the_database(current_user: models.User = Depends(auth.get_current_admin_user)):
+    """
+    Runs the VACUUM command on the database to rebuild it, which can fix corruption.
+    This action is blocking and can take a long time.
+    """
+    print("Database VACUUM triggered via API.")
+    
+    success, message = image_processor.vacuum_database()
+    
+    if not success:
+        raise HTTPException(status_code=500, detail=message)
+        
+    return {"message": message}

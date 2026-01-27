@@ -170,6 +170,7 @@ class ImageFTS(Base):
     loras = Column(Text)
     upscaler = Column(Text)
     application = Column(Text)
+    tags = Column(Text)
     full_text = Column(Text)
 
 # --- SQL Compilation Logic ---
@@ -191,6 +192,8 @@ def create_fts_table(target, connection, **kw):
             loras,
             upscaler,
             application,
+            tags,
+            stub,
             full_text
         );
     """))

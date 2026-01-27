@@ -88,7 +88,9 @@ def update_fts_entry(db: Session, location_id: int):
     """Updates or inserts an entry in the FTS index for a specific location."""
     try:
         # Fetch the location with content to ensure we have the latest data
-        loc = db.query(models.ImageLocation).options(joinedload(models.ImageLocation.content)).filter(models.ImageLocation.id == location_id).first()
+        loc = db.query(models.ImageLocation).options(
+            joinedload(models.ImageLocation.content).joinedload(models.ImageContent.tags)
+        ).filter(models.ImageLocation.id == location_id).first()
         if not loc or not loc.content:
             return
 
@@ -97,13 +99,16 @@ def update_fts_entry(db: Session, location_id: int):
             exif = json.loads(content.exif_data) if content.exif_data else {}
         except (json.JSONDecodeError, TypeError):
             exif = {}
-            
-        data = search_handler.flatten_exif_to_fts(loc.id, loc.path, loc.filename, exif)
+        
+        tags_list = [t.name for t in content.tags] if content.tags else []
+        tags_str = " ".join(tags_list)
+        
+        data = search_handler.flatten_exif_to_fts(loc.id, loc.path, loc.filename, exif, tags_str)
         
         # Use INSERT OR REPLACE to handle both new and updated entries
         sql = text("""
-            INSERT OR REPLACE INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, full_text) 
-            VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :full_text)
+            INSERT OR REPLACE INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, tags, full_text) 
+            VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :tags, :full_text)
         """)
         db.execute(sql, data)
     except Exception as e:
@@ -661,18 +666,23 @@ def rebuild_fts_index(db_session_factory):
                 loras,
                 upscaler,
                 application,
+                tags,
+                stub,
                 full_text
             )
         """))
         db.commit()
         
         # Fetch all locations with their content
-        locations = db.query(models.ImageLocation).options(joinedload(models.ImageLocation.content)).all()
+        locations = db.query(models.ImageLocation).options(
+            joinedload(models.ImageLocation.content).joinedload(models.ImageContent.tags)
+        ).all()
         
         batch_size = 100
         batch = []
         
         for loc in locations:
+            print(f"Processing ID: {loc.id} Path: {loc.path} Filename: {loc.filename}")
             content = loc.content
             if not content:
                 continue
@@ -682,16 +692,19 @@ def rebuild_fts_index(db_session_factory):
             except (json.JSONDecodeError, TypeError):
                 exif = {}
                 
-            data = search_handler.flatten_exif_to_fts(loc.id, loc.path, loc.filename, exif)
+            tags_list = [t.name for t in content.tags] if content.tags else []
+            tags_str = " ".join(tags_list)
+
+            data = search_handler.flatten_exif_to_fts(loc.id, loc.path, loc.filename, exif, tags_str)
             batch.append(data)
             
             if len(batch) >= batch_size:
-                db.execute(text("INSERT INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, full_text) VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :full_text)"), batch)
+                db.execute(text("INSERT INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, tags, stub, full_text) VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :tags, '1', :full_text)"), batch)
                 db.commit()
                 batch = []
         
         if batch:
-            db.execute(text("INSERT INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, full_text) VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :full_text)"), batch)
+            db.execute(text("INSERT INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, tags, stub, full_text) VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :tags, '1', :full_text)"), batch)
             db.commit()
             
         duration = time.time() - start_time
@@ -739,3 +752,25 @@ def purge_previews() -> int:
             except Exception as e:
                 print(f"Error deleting preview {item}: {e}")
     return count
+
+def vacuum_database() -> Tuple[bool, str]:
+    """
+    Runs the VACUUM command on the database to rebuild it.
+    This can help recover from fragmentation and minor corruption.
+    """
+    engine = database.engine
+    try:
+        print(f"[{datetime.now().isoformat()}] Starting database VACUUM process...")
+        start_time = time.time()
+        
+        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+            connection.execute(text("VACUUM"))
+        
+        duration = time.time() - start_time
+        message = f"Database vacuum completed successfully in {duration:.2f} seconds."
+        print(f"[{datetime.now().isoformat()}] {message}")
+        return True, message
+    except Exception as e:
+        message = f"Error during database vacuum: {e}"
+        print(f"Error during database VACUUM: {e}")
+        return False, message
