@@ -118,7 +118,7 @@ def read_images(
         active_filters = search_handler.get_active_filter_stages(db_filters, active_stages_json)
 
         built_query = search_handler.get_final_fts_expression(search_query, active_filters)
-        #print(f"Built FTS expression: {built_query}")
+        #print(f"Built FTS expression: {built_query}") # Used for debugging expressions
         if built_query:
             query = query.filter(text("image_fts_index MATCH :fts")).params(fts=built_query)
 
@@ -258,8 +258,11 @@ def update_image(image_id: int, image_update: schemas.ImageTagUpdate, db: Sessio
     
     db.commit()
 
-    # Update FTS index for this image
-    image_processor.update_fts_entry(db, image_id)
+    # Update FTS index for all images with this content
+    related_ids = db.query(models.ImageLocation.id).filter(models.ImageLocation.content_hash == image_location.content_hash).all()
+    for (related_id,) in related_ids:
+        image_processor.update_fts_entry(db, related_id)
+    db.commit()
 
     # After updating tags, broadcast a general refresh message
     if database.main_event_loop:
@@ -311,9 +314,11 @@ def bulk_update_image_tags(
 
     db.commit()
 
-    # Update FTS index for all affected images
-    for image_id in image_ids:
-        image_processor.update_fts_entry(db, image_id)
+    # Update FTS index for all affected images (including duplicates)
+    affected_ids = db.query(models.ImageLocation.id).filter(models.ImageLocation.content_hash.in_(content_hashes)).all()
+    for (affected_id,) in affected_ids:
+        image_processor.update_fts_entry(db, affected_id)
+    db.commit()
 
     # After updating tags, broadcast a refresh message for the affected images
     if database.main_event_loop:

@@ -182,10 +182,10 @@ def get_final_fts_expression(user_query: str, active_configs: list[models.Filter
     # Build Positive Query Components
     positive_parts = []
     if base_fts:
-        positive_parts.append(f"({base_fts})")
+        positive_parts.append(base_fts)
     
     for c in show_only_clauses:
-        positive_parts.append(f"({c})")
+        positive_parts.append(c)
 
     # If no positive parts exist but we have exclusions, use the dummy anchor
     if not positive_parts and hide_clauses:
@@ -194,7 +194,7 @@ def get_final_fts_expression(user_query: str, active_configs: list[models.Filter
     # Assemble Final Query
     if positive_parts:
         # We have a positive anchor (User query OR Show Only filters OR Dummy)
-        final_query = " AND ".join(positive_parts)
+        final_query = " AND ".join(f"({p})" for p in positive_parts)
         
         for c in hide_clauses:
             final_query = f"({final_query}) NOT ({c})"
