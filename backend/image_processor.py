@@ -107,8 +107,8 @@ def update_fts_entry(db: Session, location_id: int):
         
         # Use INSERT OR REPLACE to handle both new and updated entries
         sql = text("""
-            INSERT OR REPLACE INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, tags, full_text) 
-            VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :tags, :full_text)
+            INSERT OR REPLACE INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, tags, stub, full_text) 
+            VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :tags, :stub, :full_text)
         """)
         db.execute(sql, data)
     except Exception as e:
@@ -699,12 +699,12 @@ def rebuild_fts_index(db_session_factory):
             batch.append(data)
             
             if len(batch) >= batch_size:
-                db.execute(text("INSERT INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, tags, stub, full_text) VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :tags, '1', :full_text)"), batch)
+                db.execute(text("INSERT INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, tags, stub, full_text) VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :tags, :stub, :full_text)"), batch)
                 db.commit()
                 batch = []
         
         if batch:
-            db.execute(text("INSERT INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, tags, stub, full_text) VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :tags, '1', :full_text)"), batch)
+            db.execute(text("INSERT INTO image_fts_index (rowid, location_id, path, filename, prompt, negative_prompt, model, sampler, scheduler, loras, upscaler, application, tags, stub, full_text) VALUES (:location_id, :location_id, :path, :filename, :prompt, :negative_prompt, :model, :sampler, :scheduler, :loras, :upscaler, :application, :tags, :stub, :full_text)"), batch)
             db.commit()
             
         duration = time.time() - start_time
