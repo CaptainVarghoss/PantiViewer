@@ -7,7 +7,6 @@ from pathlib import Path
 from datetime import datetime
 import os, json, threading, mimetypes, asyncio
 import concurrent.futures
-from search_constructor import generate_image_search_filter
 from websocket_manager import manager # Import the WebSocket manager
 import search_handler
 
@@ -105,6 +104,10 @@ def read_images(
 
     # Create a subquery to select all paths that are not explicitly marked as ignored.
     query = query.filter(models.ImagePath.is_ignored == False)
+
+    if not current_user.admin:
+        query = query.filter(models.ImagePath.admin_only == False)
+        query = query.filter(~models.ImageContent.tags.any(models.Tag.admin_only == True))
 
     if trash_only:
         query = query.filter(models.ImageLocation.deleted == True)
