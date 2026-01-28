@@ -1233,14 +1233,14 @@ form .section-list .section-item .section-fields:nth-child(3) {
     width: 15rem;
 }
 
-.tag-cluster-content {
-  display: contents;
-}
-
-#image .tag-cluster-content {
+#image .tag-cluster-content, #settings .tag-cluster-content {
   display: block;
   justify-content: space-evenly;
   width: 100%;
+}
+
+#image .tag-cluster-content span, #settings .tag-cluster-content span {
+  margin-inline: 0.25rem;
 }
 
 .tag-create-container {
@@ -1285,9 +1285,6 @@ form .section-list .section-item .section-fields:nth-child(3) {
 }
 
 .tag-create-toggle-btn {
-    position: absolute;
-    bottom: -0.25rem;
-    right: -0.25rem;
     background: none;
     border: none;
     cursor: pointer;

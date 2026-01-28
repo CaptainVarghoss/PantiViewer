@@ -314,39 +314,44 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
                 );
             })}
             {canModifyTags && (
-                <div className="tag-create-container">
-                    <div className={`tag-create-form-wrapper ${showCreateForm ? 'visible' : ''}`}>
-                        <form onSubmit={handleCreateTag} className="tag-create-form" id="tag-create-form">
-                            <input
-                                type="text"
-                                name="newTagName"
-                                value={newTagName}
-                                onChange={(e) => setNewTagName(e.target.value)}
-                                placeholder="Create new tag..."
-                                className="form-input-base"
-                            />
-                            {isAdmin && (
-                                <label style={{ display: 'flex', alignItems: 'center', margin: '0 8px', cursor: 'pointer', whiteSpace: 'nowrap' }} title="Admin only tag">
-                                    <input
-                                        type="checkbox"
-                                        checked={newTagAdminOnly}
-                                        onChange={(e) => setNewTagAdminOnly(e.target.checked)}
-                                        style={{ marginRight: '4px' }}
-                                    />
-                                    <span style={{ fontSize: '0.85em' }}>Admin</span>
-                                </label>
-                            )}
-                            <button type="submit" name="submit" disabled={!newTagName.trim()} className="btn-base btn-green">Add Tag</button>
-                        </form>
+                <>
+                    <span>
+                        <button
+                            className="tag-create-toggle-btn"
+                            onClick={() => setShowCreateForm(prev => !prev)}
+                            title={showCreateForm ? "Hide form" : "Create new tag"}
+                        >
+                            {showCreateForm ? <IoRemoveCircleOutline size={24} /> : <IoAddCircleOutline size={24} />}
+                        </button>
+                    </span>
+                    
+                    <div className="tag-create-container">
+                        <div className={`tag-create-form-wrapper ${showCreateForm ? 'visible' : ''}`}>
+                            <form onSubmit={handleCreateTag} className="tag-create-form" id="tag-create-form">
+                                <input
+                                    type="text"
+                                    name="newTagName"
+                                    value={newTagName}
+                                    onChange={(e) => setNewTagName(e.target.value)}
+                                    placeholder="Create new tag..."
+                                    className="form-input-base"
+                                />
+                                {isAdmin && (
+                                    <label style={{ display: 'flex', alignItems: 'center', margin: '0 8px', cursor: 'pointer', whiteSpace: 'nowrap' }} title="Admin only tag">
+                                        <input
+                                            type="checkbox"
+                                            checked={newTagAdminOnly}
+                                            onChange={(e) => setNewTagAdminOnly(e.target.checked)}
+                                            style={{ marginRight: '4px' }}
+                                        />
+                                        <span style={{ fontSize: '0.85em' }}>Admin</span>
+                                    </label>
+                                )}
+                                <button type="submit" name="submit" disabled={!newTagName.trim()} className="btn-base btn-green">Add Tag</button>
+                            </form>
+                        </div>
                     </div>
-                    <button
-                        className="tag-create-toggle-btn"
-                        onClick={() => setShowCreateForm(prev => !prev)}
-                        title={showCreateForm ? "Hide form" : "Create new tag"}
-                    >
-                        {showCreateForm ? <IoRemoveCircleOutline size={24} /> : <IoAddCircleOutline size={24} />}
-                    </button>
-                </div>
+                </>
             )}
         </div>
     );

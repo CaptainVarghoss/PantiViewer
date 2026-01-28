@@ -256,15 +256,8 @@ function ImagePathsManagement({ onBack }) {
                     <div className="section-fields">
                         <div className="form-group">
                             <label>Tags</label>
-                            <TagCluster.Display type="imagepath_tags" itemId={path.id} />
+                            <TagCluster.Popup type="imagepath_tags" itemId={path.id} isEmbedded={true} />
                         </div>
-                    </div>
-                    <div className="section-fields" style={{ position: 'relative' }}>
-                        <button type="button" className="btn-base" onClick={() => setOpenTagPicker(prev => (prev.pathId === path.id && prev.type === 'tags') ? { pathId: null, type: null } : { pathId: path.id, type: 'tags' })}>
-                            Change Tags
-                        </button>
-                        {openTagPicker.pathId === path.id && openTagPicker.type === 'tags' && (
-                            <TagCluster.Popup type="imagepath_tags" itemId={path.id} onClose={() => setOpenTagPicker({ pathId: null, type: null })} /> )}
                     </div>
                 </div>
               </div>
