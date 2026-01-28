@@ -127,6 +127,9 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
     const [newTagName, setNewTagName] = useState('');
     const [newTagAdminOnly, setNewTagAdminOnly] = useState(false);
     const [showCreateForm, setShowCreateForm] = useState(false);
+    
+    const [bulkUpdates, setBulkUpdates] = useState(new Map()); // tagId -> 'add' | 'remove'
+    const [isApplying, setIsApplying] = useState(false);
 
     const canModifyTags = isAdmin || (settings?.allow_tag_add === true);
 
@@ -188,6 +191,23 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
             return; // Don't proceed with updating tags on an item.
         }
 
+        if (type === 'image_tags_bulk') {
+            setBulkUpdates(prev => {
+                const newMap = new Map(prev);
+                const currentState = newMap.get(tag.id);
+                
+                if (!currentState) {
+                    newMap.set(tag.id, 'add');
+                } else if (currentState === 'add') {
+                    newMap.set(tag.id, 'remove');
+                } else {
+                    newMap.delete(tag.id);
+                }
+                return newMap;
+            });
+            return;
+        }
+
         const newActiveTagIds = new Set(activeTagIds);
         if (newActiveTagIds.has(tag.id)) {
             newActiveTagIds.delete(tag.id);
@@ -224,18 +244,6 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify(payload)
                 });
-            } else if (type === 'image_tags_bulk') {
-                // This is the new bulk update logic
-                const payload = { // Ensure itemIds is not undefined before creating the payload
-                    image_ids: Array.from(itemIds),
-                    tag_id: tag.id,
-                    action: newActiveTagIds.has(tag.id) ? 'add' : 'remove'
-                };
-                response = await fetch(`/api/images/tags/bulk-update`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(payload)
-                });
             }
 
             if (!response.ok) {
@@ -259,6 +267,42 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
             // Revert optimistic update on error (optional, could refetch)
         }
     }, [activeTagIds, type, itemId, itemIds, token, onTagSelect]);
+
+    const handleApplyBulkUpdates = async () => {
+        if (bulkUpdates.size === 0) {
+            onClose();
+            return;
+        }
+        
+        setIsApplying(true);
+        try {
+            const promises = [];
+            for (const [tagId, action] of bulkUpdates.entries()) {
+                const payload = {
+                    image_ids: Array.from(itemIds),
+                    tag_id: tagId,
+                    action: action
+                };
+                promises.push(fetch(`/api/images/tags/bulk-update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(payload)
+                }));
+            }
+            
+            await Promise.all(promises);
+            
+            // Notify updates
+            itemIds.forEach(id => tagUpdateManager.dispatchEvent(new CustomEvent('tagsUpdated', { detail: { itemId: id, type: 'image_tags' } })));
+            
+            onClose();
+        } catch (err) {
+            setError("Failed to apply some updates.");
+            console.error(err);
+        } finally {
+            setIsApplying(false);
+        }
+    };
 
     const handleCreateTag = async (e) => {
         e.preventDefault();
@@ -300,14 +344,25 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
     const tagEditorContent = (
         <div className="tag-cluster-content">
             {allTags.map(tag => {
-                const isActive = activeTagIds.has(tag.id);
-                const tagClasses = `tag-badge ${isActive ? 'active' : ''}`;
+                let isActive = false;
+                let isRemove = false;
+
+                if (type === 'image_tags_bulk') {
+                    const state = bulkUpdates.get(tag.id);
+                    isActive = state === 'add';
+                    isRemove = state === 'remove';
+                } else {
+                    isActive = activeTagIds.has(tag.id);
+                }
+
+                const tagClasses = `tag-badge ${isActive ? 'active' : ''} ${isRemove ? 'remove' : ''}`;
                 const isClickable = canModifyTags;
                 return (
                     <span
                         key={tag.id}
                         className={`${tagClasses} ${isClickable ? '' : 'not-clickable'}`}
-                        onClick={isClickable ? () => handleTagToggle(tag) : undefined}
+                        onClick={isClickable ? (e) => { e.stopPropagation(); handleTagToggle(tag); } : undefined}
+                        onMouseDown={(e) => e.stopPropagation()}
                     >
                         {tag.name}
                     </span>
@@ -352,6 +407,20 @@ TagCluster.Popup = function TagPopup({ type, itemId, itemIds, onClose, onTagSele
                         </div>
                     </div>
                 </>
+            )}
+            {type === 'image_tags_bulk' && (
+                <div style={{ width: '100%', marginTop: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                    <div className="section-help" style={{ fontSize: '0.75rem', alignSelf: 'center' }}>
+                        Click to Add (Green), again to Remove (Red).
+                    </div>
+                    <button 
+                        className="btn-base btn-primary" 
+                        onClick={handleApplyBulkUpdates}
+                        disabled={isApplying}
+                    >
+                        {isApplying ? 'Applying...' : `Apply Changes`}
+                    </button>
+                </div>
             )}
         </div>
     );

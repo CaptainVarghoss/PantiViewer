@@ -1137,6 +1137,14 @@ form .section-list .section-item .section-fields:nth-child(3) {
     border-color: var(--tint-secondary);
 }
 
+/* REMOVE STATE (Red) */
+.tag-badge.remove {
+    background-color: var(--bg-card);
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+    text-decoration: line-through;
+}
+
 /* Context Menu Styles */
 .context-menu {
     position: fixed;
