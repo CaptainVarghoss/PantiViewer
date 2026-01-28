@@ -1233,6 +1233,10 @@ form .section-list .section-item .section-fields:nth-child(3) {
     width: 15rem;
 }
 
+.tag-cluster-content {
+  display: contents;
+}
+
 #image .tag-cluster-content, #settings .tag-cluster-content {
   display: block;
   justify-content: space-evenly;
