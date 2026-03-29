@@ -3,6 +3,6 @@ uvicorn[standard]
 python-multipart
 sqlalchemy
 Pillow
-passlib
 python-jose
 bcrypt
+watchdog

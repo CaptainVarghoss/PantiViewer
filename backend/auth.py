@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import os
+import bcrypt
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -14,13 +14,14 @@ import config
 
 # --- Password Hashing ---
 # Used for hashing and verifying passwords
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    # bcrypt.checkpw expects bytes for both arguments
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    # Generate a salt and hash the password, returning a string for DB storage
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 # --- JWT Configuration ---
 # Generate a strong secret key for production: openssl rand -hex 32

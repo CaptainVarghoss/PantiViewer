@@ -48,6 +48,14 @@ def generate_default_config():
         'SQLITE_DB_PATH': ''
     }
 
+    # --- Media Section ---
+    default_config['Media'] = {
+        '# Default size for generated thumbnails (max dimension in px).': None,
+        'THUMBNAIL_SIZE': '400',
+        '# Default size for generated previews (max dimension in px).': None,
+        'PREVIEW_SIZE': '1024'
+    }
+
     with open(USER_CONFIG_FILE, 'w') as configfile:
         configfile.write("# Panti Viewer User Configuration File\n")
         configfile.write("# This file is for user-specific settings. It overrides the application defaults.\n")
@@ -62,28 +70,28 @@ else:
     print(f'Loading default configuration file from: {USER_CONFIG_FILE}')
 
 # Read user config
-config = configparser.ConfigParser()
-config.read(USER_CONFIG_FILE)
+_parser = configparser.ConfigParser()
+_parser.read(USER_CONFIG_FILE)
 
 # --- Server Configuration ---
-frontend_host_from_config = config.get('Server', 'FRONTEND_HOST', fallback='0.0.0.0')
+frontend_host_from_config = _parser.get('Server', 'FRONTEND_HOST', fallback='0.0.0.0')
 FRONTEND_HOST = os.getenv("FRONTEND_HOST", frontend_host_from_config)
 
-frontend_port_from_config = config.getint('Server', 'FRONTEND_PORT', fallback=5173)
+frontend_port_from_config = _parser.getint('Server', 'FRONTEND_PORT', fallback=5173)
 FRONTEND_PORT = int(os.getenv("FRONTEND_APP_PORT", frontend_port_from_config))
 
 # --- Backend Server Configuration ---
-backend_host_from_config = config.get('Server', 'BACKEND_HOST', fallback='0.0.0.0')
+backend_host_from_config = _parser.get('Server', 'BACKEND_HOST', fallback='0.0.0.0')
 BACKEND_HOST = os.getenv("BACKEND_APP_HOST", backend_host_from_config)
 BACKEND_HOST_LISTEN = os.getenv("BACKEND_HOST_LISTEN", "0.0.0.0")
-backend_port_from_config = config.getint('Server', 'BACKEND_PORT', fallback=8000)
+backend_port_from_config = _parser.getint('Server', 'BACKEND_PORT', fallback=8000)
 BACKEND_PORT = int(os.getenv("BACKEND_APP_PORT", backend_port_from_config))
 
 # --- Security Settings ---
-token_expire_from_config = config.getint('Security', 'ACCESS_TOKEN_EXPIRE_MINUTES', fallback=43200)
+token_expire_from_config = _parser.getint('Security', 'ACCESS_TOKEN_EXPIRE_MINUTES', fallback=43200)
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", token_expire_from_config))
 
-secret_key_from_config = config.get('Security', 'SECRET_KEY', fallback='your-super-secret-key-replace-me')
+secret_key_from_config = _parser.get('Security', 'SECRET_KEY', fallback='your-super-secret-key-replace-me')
 SECRET_KEY = os.getenv("SECRET_KEY", secret_key_from_config)
 
 # --- CORS Origins
@@ -96,20 +104,20 @@ default_cors_list = [
     f"http://{BACKEND_HOST}:{BACKEND_PORT}", # Allow backend to be an origin
 ]
 default_cors_str = ",".join(default_cors_list)
-cors_from_config = config.get('Server', 'CORS_ALLOWED_ORIGINS', fallback=default_cors_str)
+cors_from_config = _parser.get('Server', 'CORS_ALLOWED_ORIGINS', fallback=default_cors_str)
 cors_from_env = os.getenv("CORS_ALLOWED_ORIGINS", cors_from_config)
-CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_from_env.split(',')]
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_from_env.split(',') if origin.strip()]
 
 # --- Database Configuration ---
-database_url_from_config = config.get('Database', 'SQLALCHEMY_DATABASE_URL', fallback='')
-sqlite_db_path_from_config = config.get('Database', 'SQLITE_DB_PATH', fallback='')
+database_url_from_config = _parser.get('Database', 'SQLALCHEMY_DATABASE_URL', fallback='')
+sqlite_db_path_from_config = _parser.get('Database', 'SQLITE_DB_PATH', fallback='')
 
 if database_url_from_config:
     final_database_url = database_url_from_config
 elif sqlite_db_path_from_config:
-    final_database_url = f"sqlite:///{sqlite_db_path_from_config}"
+    final_database_url = f"sqlite:///{Path(sqlite_db_path_from_config).as_posix()}"
 else:
-    final_database_url = f"sqlite:///{CURRENT_DIR / 'sql_app.db'}"
+    final_database_url = f"sqlite:///{ (CURRENT_DIR / 'sql_app.db').as_posix() }"
 
 SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL", final_database_url)
 DATABASE_URL = SQLALCHEMY_DATABASE_URL
@@ -145,10 +153,10 @@ THUMBNAILS_DIR = GENERATED_MEDIA_ROOT / THUMBNAILS_DIR_NAME
 PREVIEWS_DIR = GENERATED_MEDIA_ROOT / PREVIEWS_DIR_NAME
 
 # Sizes for generated images
-thumb_size_from_config = config.getint('Media', 'THUMBNAIL_SIZE', fallback=400)
+thumb_size_from_config = _parser.getint('Media', 'THUMBNAIL_SIZE', fallback=400)
 THUMBNAIL_SIZE = int(os.getenv("THUMBNAIL_SIZE", thumb_size_from_config))
 
-preview_size_from_config = config.getint('Media', 'PREVIEW_SIZE', fallback=1024)
+preview_size_from_config = _parser.getint('Media', 'PREVIEW_SIZE', fallback=1024)
 PREVIEW_SIZE = int(os.getenv("PREVIEW_SIZE", preview_size_from_config))
 
 # URL path where generated media will be served by FastAPI
