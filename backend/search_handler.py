@@ -1,4 +1,4 @@
-import shlex, json
+import shlex, json, re
 import models
 
 def flatten_exif_to_fts(location_id, path, filename, exif_json, tags=""):
@@ -57,6 +57,10 @@ def build_fts_query(user_query: str):
     fts_keywords = {"AND", "OR", "NOT", "NEAR"}
 
     try:
+        # Pre-process to add spaces around operators (| & !), while ignoring them inside quotes.
+        # This allows 'fox|frog' to be split correctly into ['fox', '|', 'frog'].
+        user_query = re.sub(r'("[^"]*"|\'[^\']*\'|[|&!])', r' \1 ', user_query)
+        
         # Using shlex to respect "quoted phrases"
         parts = shlex.split(user_query)
     except ValueError:
