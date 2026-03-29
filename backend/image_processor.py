@@ -64,6 +64,9 @@ def get_meta(filepath: str) -> Tuple[dict, Optional[int], Optional[int]]:
             height = video_info['streams'][0].get('height')
             # Videos don't have EXIF in the same way, return empty dict
             return {}, width, height
+        except FileNotFoundError:
+            print("Error: 'ffprobe' not found. Please ensure ffmpeg is installed on your system to process video files.")
+            return {}, None, None
         except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError, IndexError) as e:
             print(f"Error getting video metadata with ffprobe for {filepath}: {e}")
             # Fallback or fail gracefully
@@ -479,6 +482,9 @@ def generate_thumbnail(
             print(f"Generated video thumbnail: {thumb_filepath}")
 
             image_to_process = PILImage.open(temp_image_path)
+        except FileNotFoundError:
+            print(f"Warning: ffmpeg not found. Skipping video thumbnail generation for {source_filepath}.")
+            return None # Indicate that thumbnail generation failed
         except subprocess.CalledProcessError as e:
             print(f"Error generating video thumbnail with ffmpeg for {source_filepath}: {e}")
             print(f"FFmpeg stdout: {e.stdout.decode()}")

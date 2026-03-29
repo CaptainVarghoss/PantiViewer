@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import argparse
+import shutil
 
 def run_command(command, cwd=None, env=None):
     """Helper to run shell commands and exit on failure."""
@@ -14,9 +15,26 @@ def main():
     parser = argparse.ArgumentParser(description="App Startup Script")
     parser.add_argument('mode', nargs='?', default='prod', choices=['dev', 'prod'], 
                         help="Run in 'dev' or 'prod' mode")
+    parser.add_argument('--no-ffmpeg', action='store_true', 
+                        help="Skip ffmpeg/ffprobe installation check")
     args = parser.parse_args()
 
     print(f"🚀 Starting app in {args.mode.upper()} mode...")
+
+    # 0. System Dependency Check (ffmpeg/ffprobe)
+    if not args.no_ffmpeg:
+        print("Checking for ffmpeg/ffprobe...")
+        if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
+            print("-" * 60)
+            print("CRITICAL ERROR: ffmpeg and/or ffprobe not found.")
+            print("These tools are required for video metadata extraction and thumbnail generation.")
+            print("\nPlease install them using your package manager:")
+            print(" - Ubuntu/Debian: sudo apt update && sudo apt install ffmpeg")
+            print(" - macOS (Homebrew): brew install ffmpeg")
+            print(" - Windows: Download from https://ffmpeg.org/download.html and add to your PATH.")
+            print("\nIf you wish to bypass this check, use: python startup.py --no-ffmpeg")
+            print("-" * 60)
+            sys.exit(1)
 
     # 1. GIT UPDATES
     if args.mode == 'prod':
